@@ -1,0 +1,1 @@
+./corev-openhw-gcc-ubuntu2204-20240530/bin/riscv32-corev-elf-gdb -x gdb.cfg $1
