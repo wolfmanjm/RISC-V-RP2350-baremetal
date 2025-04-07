@@ -135,6 +135,6 @@ spi1_init:
 .globl main
 main:
 	# call setup_uart
-	call spi1_init
+	# call spi1_init
 	call toggle_pin
 	ret

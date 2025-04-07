@@ -3,5 +3,5 @@ asm -g -o spi.o spi.s
 asm -g -o toggle-pin.o toggle-pin.s
 
 ./corev-openhw-gcc-ubuntu2204-20240530/bin/riscv32-corev-elf-ld -g -m elf32lriscv -T linker-ram.ld -o main.elf startup.o spi.o toggle-pin.o
-/home/morris/Stuff/riscv/corev-openhw-gcc-ubuntu2204-20240530/bin/riscv32-corev-elf-objcopy -O binary main.elf main.bin
-/home/morris/Stuff/riscv/corev-openhw-gcc-ubuntu2204-20240530/bin/riscv32-corev-elf-objdump -f main.elf
+./corev-openhw-gcc-ubuntu2204-20240530/bin/riscv32-corev-elf-objcopy -O binary main.elf main.bin
+./corev-openhw-gcc-ubuntu2204-20240530/bin/riscv32-corev-elf-objdump -d main.elf > main.lst

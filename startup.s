@@ -25,6 +25,9 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 
 # clock setup taken from mecrisp-quintus by Mathias Koch
 .equ RESETS_BASE, 0x40020000
+.equ RESETS_PLL_USB, 15
+.equ RESETS_PLL_SYS, 14
+.equ RESETS_PLLS, (1<<RESETS_PLL_USB) | (1<<RESETS_PLL_SYS)
 
 .equ XOSC_BASE, 0x40048000
 .equ XOSC_CTRL,    XOSC_BASE + 0x00 # Crystal Oscillator Control
@@ -34,8 +37,32 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 .equ XOSC_COUNT,   XOSC_BASE + 0x10 # A down counter running at the XOSC frequency which counts to zero and stops.
 
 .equ CLOCKS_BASE, 0x40010000
-.equ CLK_SYS_CTRL,   CLOCKS_BASE + 0x3C
-.equ CLK_PERI_CTRL,  CLOCKS_BASE + 0x48
+.equ _CLK_REF_CTRL, 0x30
+.equ _CLK_REF_DIV, 0x34
+.equ _CLK_REF_SELECTED, 0x38
+.equ _CLK_SYS_CTRL, 0x3C
+.equ _CLK_SYS_DIV, 0x40
+.equ _CLK_SYS_SELECTED, 0x44
+.equ _CLK_PERI_CTRL, 0x48
+.equ _CLK_PERI_DIV, 0x4C
+
+.equ _CLK_SYS_RESUS_CTRL, 0x84
+
+.equ PLL_SYS_BASE, 0x40050000
+.equ PLL_USB_BASE, 0x40058000
+.equ PLL_CS, 0x0
+.equ PLL_PWR, 0x4
+.equ PLL_FBDIV_INT, 0x8
+.equ PLL_PRIM, 0xc
+.equ PLL_VCOPD, 5
+.equ PLL_PD, 0
+.equ PLL_POSTDIV1, 16
+.equ PLL_POSTDIV2, 12
+.equ PLL_CS_LOCK, 1 << 31
+.equ PLL_START, (1<<PLL_VCOPD) | (1<<PLL_PD)
+.equ PLL_SYS_DIV, (5<<PLL_POSTDIV1) | (2<<PLL_POSTDIV2)
+.equ PLL_USB_DIV, (5<<PLL_POSTDIV1) | (4<<PLL_POSTDIV2)
+
 
 .equ IO_BANK0_BASE, 0x40028000
 .equ GPIO_0_STATUS,  IO_BANK0_BASE + (8 *  0)
@@ -84,40 +111,207 @@ _sysinit:
 	csrrwi zero, 0x320, 4  # MCOUNTINHIBIT: Keep minstret(h) stopped, but run mcycle(h).
 
 	# Remove reset of all subsystems
-	li x15, RESETS_BASE
-	sw zero, 0(x15)
+	li t1, RESETS_BASE
+	sw zero, 0(t1)
+
+	# Disable Resus
+	li t1, CLOCKS_BASE
+	sw zero, _CLK_SYS_RESUS_CTRL(t1)
 
 	# Configure XOSC to use 12 MHz crystal
+	li t1, XOSC_CTRL      #  XOSC range 1-15MHz (Crystal Oscillator)
+	li t2, 0x00000aa0
+	sw t2, 0(t1)
 
-	li x15, XOSC_CTRL      #  XOSC range 1-15MHz (Crystal Oscillator)
-	li x14, 0x00000aa0
-	sw x14, 0(x15)
+	li t1, XOSC_STARTUP   # Startup Delay (default = 50,000 cycles aprox.)
+	li t2, 0x0000011c
+	sw t2, 0(t1)
 
-	li x15, XOSC_STARTUP   # Startup Delay (default = 50,000 cycles aprox.)
-	li x14, 0x0000011c
-	sw x14, 0(x15)
+	li t1, XOSC_CTRL | WRITE_SET   # Enable XOSC
+	li t2, 0x00FAB000
+	sw t2, 0(t1)
 
-	li x15, XOSC_CTRL | WRITE_SET   # Enable XOSC
-	li x14, 0x00FAB000
-	sw x14, 0(x15)
+	li t1, XOSC_STATUS    # Wait for XOSC being stable
+1:	lw t2, 0(t1)
+	srli t2, t2, 31
+	beqz t2, 1b
 
-	li x15, XOSC_STATUS    # Wait for XOSC being stable
-1:	lw x14, 0(x15)
-	srli x14, x14, 31
-	beqz x14, 1b
+	# Before we touch PLLs, switch sys and ref cleanly away from their aux sources.
+		# hw_clear_bits(&clocks_hw->clk[clk_sys].ctrl, CLOCKS_CLK_SYS_CTRL_SRC_BITS:1);
+	li t1, CLOCKS_BASE | WRITE_CLR
+	li t0, 1
+	sw t0, _CLK_SYS_CTRL(t1)
+		# while (clocks_hw->clk[clk_sys].selected != 0x1)
+	li t1, CLOCKS_BASE
+1:	lw t2, _CLK_SYS_SELECTED(t1)
+	bne t0, t2, 1b
+		# hw_clear_bits(&clocks_hw->clk[clk_ref].ctrl, CLOCKS_CLK_REF_CTRL_SRC_BITS:3);
+	li t1, CLOCKS_BASE | WRITE_CLR
+	li t0, 3
+	sw t0, _CLK_REF_CTRL(t1)
+		# while (clocks_hw->clk[clk_ref].selected != 0x1)
+	li t1, CLOCKS_BASE
+	li t0, 1
+1:	lw t2, _CLK_REF_SELECTED(t1)
+	bne t0, t2, 1b
+
+	#	Reset PLLs
+	li t1, RESETS_BASE | WRITE_SET
+	li t0, RESETS_PLLS
+	sw t0, 0(t1)
+	li t1, RESETS_BASE | WRITE_CLR
+	sw t0, 0(t1)
+	li t1, RESETS_BASE
+1:	lw t2, 8(t1) # RESETS_DONE
+	and t2, t2, t0
+	bne t2, t0, 1b
 
 	# setup PLL for 150MHz from the XOSC
-	# TODO
+    #    pll_init(pll_sys, PLL_SYS_REFDIV, PLL_SYS_VCO_FREQ_HZ, PLL_SYS_POSTDIV1, PLL_SYS_POSTDIV2);
+    #    pll_init(pll_usb, PLL_USB_REFDIV, PLL_USB_VCO_FREQ_HZ, PLL_USB_POSTDIV1, PLL_USB_POSTDIV2);
 
-	# Select main clock
-	li x15, CLK_SYS_CTRL
-	li x14, (3 << 5)
-	sw x14, 0(x15)
+	# Don't divide the crystal frequency
+	li t2, PLL_SYS_BASE
+	li t3, PLL_USB_BASE
+	li t0, 1
+	sw t0, PLL_CS(t2)
+	sw t0, PLL_CS(t3)
+
+	# SYS: VCO = 12MHz * 125 = 1500MHz
+	# USB: VCO = 12MHz *  80 =  960MHz
+	li t0, 125
+	sw t0, PLL_FBDIV_INT(t2)
+	li t0, 80
+	sw t0, PLL_FBDIV_INT(t3)
+
+	# Start PLLs
+	li t2, PLL_SYS_BASE | WRITE_CLR
+	li t3, PLL_USB_BASE | WRITE_CLR
+	li t0, PLL_START
+	sw t0, PLL_PWR(t2)
+	sw t0, PLL_PWR(t3)
+
+	# Wait until both PLLs are locked
+	li t2, PLL_SYS_BASE
+	li t3, PLL_USB_BASE
+	li t4, 0x80000000
+1:	lw t0, PLL_CS(t2)
+	lw t1, PLL_CS(t3)
+	and t0, t0, t1
+	and t0, t0, t4
+	bne t0, t4, 1b
+
+	# Set the PLL post dividers
+	li t0, PLL_SYS_DIV
+	li t1, PLL_USB_DIV
+	sw t0, PLL_PRIM(t2)
+	sw t1, PLL_PRIM(t3)
+	li t2, PLL_SYS_BASE | WRITE_CLR
+	li t3, PLL_USB_BASE | WRITE_CLR
+	li t0, 8
+	sw t0, PLL_PWR(t2)
+	sw t0, PLL_PWR(t3)
+
+	# for clk_ref
+	# // Set aux mux first, and then glitchless mux if this clock has one
+	# div = 1<<16, src = CLOCKS_CLK_REF_CTRL_SRC_VALUE_XOSC_CLKSRC:2, auxsrc = 0, XOSC_HZ
+    # hw_write_masked(&clock_hw->ctrl, (auxsrc << CLOCKS_CLK_SYS_CTRL_AUXSRC_LSB:5), CLOCKS_CLK_SYS_CTRL_AUXSRC_BITS:e0 );
+	# 	-- hw_xor_bits(addr, (*addr ^ 0) & $E0);
+	# hw_write_masked(&clock_hw->ctrl, src << CLOCKS_CLK_REF_CTRL_SRC_LSB:0, CLOCKS_CLK_REF_CTRL_SRC_BITS:3 );
+	# 	-- hw_xor_bits(addr, (*addr ^ 2) & $03);
+    # while (!(clock_hw->selected & (1u << src))) tight_loop_contents();
+    # hw_set_bits(&clock_hw->ctrl, CLOCKS_CLK_GPOUT0_CTRL_ENABLE_BITS:$0800);
+	# clock_hw->div = div;
+
+	li t1, CLOCKS_BASE
+	lw t2, _CLK_REF_CTRL(t1)
+	# xori t2, t2, 0
+	andi t2, t2, 0xE0
+	li t1, CLOCKS_BASE | WRITE_XOR
+	sw t2, _CLK_REF_CTRL(t1)
+
+	li t1, CLOCKS_BASE
+	lw t2, _CLK_REF_CTRL(t1)
+	xori t2, t2, 2
+	andi t2, t2, 0x03
+	li t1, CLOCKS_BASE | WRITE_XOR
+	sw t2, _CLK_REF_CTRL(t1)
+
+	li t1, CLOCKS_BASE
+1:	lw t2, _CLK_REF_SELECTED(t1)
+	andi t2, t2, 1<<2
+	beqz t2, 1b
+
+	# Does nothing on ref clk
+	# li t1, CLOCKS_BASE | WRITE_SET
+	# li t2, 0x0800
+	# sw t2, _CLK_REF_CTRL(t1)
+
+	li t1, CLOCKS_BASE
+	li t2, 1<<16
+	sw t2, _CLK_REF_DIV(t1)
+
+
+	# sys clk
+	# div = 1<<16
+	# src = CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX:1
+	# auxsrc = CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS:0
+
+    # hw_clear_bits(&clock_hw->ctrl, CLOCKS_CLK_REF_CTRL_SRC_BITS:3);
+    # while (!(clock_hw->selected & 1u)) tight_loop_contents();
+
+    # hw_write_masked(&clock_hw->ctrl, (auxsrc << CLOCKS_CLK_SYS_CTRL_AUXSRC_LSB:5), CLOCKS_CLK_SYS_CTRL_AUXSRC_BITS:e0 );
+	# 	-- hw_xor_bits(addr, (*addr ^ 0) & $E0);
+	# hw_write_masked(&clock_hw->ctrl, src << CLOCKS_CLK_REF_CTRL_SRC_LSB:0, CLOCKS_CLK_REF_CTRL_SRC_BITS:3 );
+	# 	-- hw_xor_bits(addr, (*addr ^ 1) & $03);
+    # while (!(clock_hw->selected & (1u << src))) tight_loop_contents();
+ 	# clock_hw->div = div;
+
+	li t1, CLOCKS_BASE | WRITE_CLR
+	li t2, 0x03
+	sw t2, _CLK_SYS_CTRL(t1)
+	li t1, CLOCKS_BASE
+1:	lw t2, _CLK_SYS_SELECTED(t1)
+	andi t2, t2, 1
+	beqz t2, 1b
+
+	li t1, CLOCKS_BASE
+	lw t2, _CLK_SYS_CTRL(t1)
+	# xori t2, t2, 0
+	andi t2, t2, 0xE0
+	li t1, CLOCKS_BASE | WRITE_XOR
+	sw t2, _CLK_SYS_CTRL(t1)
+
+	li t1, CLOCKS_BASE
+	lw t2, _CLK_SYS_CTRL(t1)
+	xori t2, t2, 1
+	andi t2, t2, 0x03
+	li t1, CLOCKS_BASE | WRITE_XOR
+	sw t2, _CLK_SYS_CTRL(t1)
+
+	li t1, CLOCKS_BASE
+1:	lw t2, _CLK_SYS_SELECTED(t1)
+	andi t2, t2, 1<<1
+	beqz t2, 1b
+
+	li t1, CLOCKS_BASE
+	li t2, 1<<16
+	sw t2, _CLK_SYS_DIV(t1)
+
 
 	# Enable peripheral clock
-	li x15, CLK_PERI_CTRL
-	li x14, 0x800 | (4 << 5)   # Enabled, XOSC as source
-	sw x14, 0(x15)
+	# peri clk
+	# div = 1<<16
+	# src = 0
+	# auxsrc = CLOCKS_CLK_HSTX_CTRL_AUXSRC_VALUE_CLK_SYS:0
+    # while (!(clock_hw->selected & (1u << src))) tight_loop_contents();
+ 	# clock_hw->div = div;
+	li t1, CLOCKS_BASE | WRITE_SET
+	li t0, 0x800
+	sw t0, _CLK_PERI_CTRL(t1)
+	li t1, CLOCKS_BASE
+	li t2, 1<<16
+	sw t2, _CLK_PERI_DIV(t1)
 
 	call main
 	wfi                 # Wait for interrupt (to save power)

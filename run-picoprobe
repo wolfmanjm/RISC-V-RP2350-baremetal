@@ -1,0 +1,2 @@
+cd /home/morris/Stuff/riscv/openocd/src
+./runit-pico $*
