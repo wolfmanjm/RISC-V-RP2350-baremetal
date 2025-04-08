@@ -59,7 +59,7 @@ loop:
 	csrr t4, mcycle
 	sub	t3, t4, t3		# count cycles of inner loop
 
-	# delay before goping high again so logic analyzer won't miss it
+	# delay before going high again so logic analyzer won't miss it (83ns is smaller than the sample window)
 	li t1, 10
 1:	addi t1, t1, -1
 	bnez t1, 1b

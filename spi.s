@@ -131,10 +131,3 @@ spi1_init:
 	jal spi1_enable
 	popra
 	ret
-
-.globl main
-main:
-	# call setup_uart
-	# call spi1_init
-	call toggle_pin
-	ret

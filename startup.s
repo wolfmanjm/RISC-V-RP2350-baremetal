@@ -167,8 +167,6 @@ _sysinit:
 	bne t2, t0, 1b
 
 	# setup PLL for 150MHz from the XOSC
-    #    pll_init(pll_sys, PLL_SYS_REFDIV, PLL_SYS_VCO_FREQ_HZ, PLL_SYS_POSTDIV1, PLL_SYS_POSTDIV2);
-    #    pll_init(pll_usb, PLL_USB_REFDIV, PLL_USB_VCO_FREQ_HZ, PLL_USB_POSTDIV1, PLL_USB_POSTDIV2);
 
 	# Don't divide the crystal frequency
 	li t2, PLL_SYS_BASE
@@ -212,17 +210,7 @@ _sysinit:
 	sw t0, PLL_PWR(t2)
 	sw t0, PLL_PWR(t3)
 
-	# for clk_ref
-	# // Set aux mux first, and then glitchless mux if this clock has one
-	# div = 1<<16, src = CLOCKS_CLK_REF_CTRL_SRC_VALUE_XOSC_CLKSRC:2, auxsrc = 0, XOSC_HZ
-    # hw_write_masked(&clock_hw->ctrl, (auxsrc << CLOCKS_CLK_SYS_CTRL_AUXSRC_LSB:5), CLOCKS_CLK_SYS_CTRL_AUXSRC_BITS:e0 );
-	# 	-- hw_xor_bits(addr, (*addr ^ 0) & $E0);
-	# hw_write_masked(&clock_hw->ctrl, src << CLOCKS_CLK_REF_CTRL_SRC_LSB:0, CLOCKS_CLK_REF_CTRL_SRC_BITS:3 );
-	# 	-- hw_xor_bits(addr, (*addr ^ 2) & $03);
-    # while (!(clock_hw->selected & (1u << src))) tight_loop_contents();
-    # hw_set_bits(&clock_hw->ctrl, CLOCKS_CLK_GPOUT0_CTRL_ENABLE_BITS:$0800);
-	# clock_hw->div = div;
-
+	# setup clk_ref
 	li t1, CLOCKS_BASE
 	lw t2, _CLK_REF_CTRL(t1)
 	# xori t2, t2, 0
@@ -252,21 +240,7 @@ _sysinit:
 	sw t2, _CLK_REF_DIV(t1)
 
 
-	# sys clk
-	# div = 1<<16
-	# src = CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX:1
-	# auxsrc = CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS:0
-
-    # hw_clear_bits(&clock_hw->ctrl, CLOCKS_CLK_REF_CTRL_SRC_BITS:3);
-    # while (!(clock_hw->selected & 1u)) tight_loop_contents();
-
-    # hw_write_masked(&clock_hw->ctrl, (auxsrc << CLOCKS_CLK_SYS_CTRL_AUXSRC_LSB:5), CLOCKS_CLK_SYS_CTRL_AUXSRC_BITS:e0 );
-	# 	-- hw_xor_bits(addr, (*addr ^ 0) & $E0);
-	# hw_write_masked(&clock_hw->ctrl, src << CLOCKS_CLK_REF_CTRL_SRC_LSB:0, CLOCKS_CLK_REF_CTRL_SRC_BITS:3 );
-	# 	-- hw_xor_bits(addr, (*addr ^ 1) & $03);
-    # while (!(clock_hw->selected & (1u << src))) tight_loop_contents();
- 	# clock_hw->div = div;
-
+	# setup sys clk to 150MHz
 	li t1, CLOCKS_BASE | WRITE_CLR
 	li t2, 0x03
 	sw t2, _CLK_SYS_CTRL(t1)
@@ -300,12 +274,6 @@ _sysinit:
 
 
 	# Enable peripheral clock
-	# peri clk
-	# div = 1<<16
-	# src = 0
-	# auxsrc = CLOCKS_CLK_HSTX_CTRL_AUXSRC_VALUE_CLK_SYS:0
-    # while (!(clock_hw->selected & (1u << src))) tight_loop_contents();
- 	# clock_hw->div = div;
 	li t1, CLOCKS_BASE | WRITE_SET
 	li t0, 0x800
 	sw t0, _CLK_PERI_CTRL(t1)
@@ -316,4 +284,14 @@ _sysinit:
 	call main
 	wfi                 # Wait for interrupt (to save power)
 
+2:  j 2b
+
+.globl main
+main:
+	# call setup_uart
+	# call spi1_init
+	# call toggle_pin
+	call test_uart
+
+	wfi                 # Wait for interrupt (to save power)
 2:  j 2b
