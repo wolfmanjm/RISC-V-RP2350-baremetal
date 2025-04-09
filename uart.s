@@ -121,6 +121,8 @@ uart_getc:
 	ret
 
 .globl parse_n
+# a0 number to parse, a1 destination address for string
+# returns number of characters in a0
 parse_n:
 	mv t0, a0
 	li t2, 10
@@ -131,16 +133,66 @@ parse_n:
 	addi t3, t3, 1
 	divu t0, t0, t2
 	bnez t0, 1b
-	la t4, tmpstr
-	mv t5, a1 			# destination address
-	sub t2, t3, t4 		# number of characters
+	la t2, tmpstr
+	mv t0, a1 			# destination address
 2:	addi t3, t3, -1     # copy into num string in reverse order
 	lbu t1, 0(t3)
-	sb t1, 0(t5)
-	addi t5, t5, 1
-	addi t2, t2, -1
-	bnez t2, 2b
-	sb zero, 0(t5)		# 0 terminate
+	sb t1, 0(t0)
+	addi t0, t0, 1
+	bne t3, t2, 2b
+	sb zero, 0(t0)		# 0 terminate
+	sub a0, a1, t0      # return number of characters
+	ret
+
+.globl parse_1h
+# a0 has nibble to parse, a1 has address to put the string
+# on return a1 points to next character
+parse_1h:
+	addi t0, a0, 0x30
+	li t1, 0x39
+	ble t0, t1, 1f
+	addi t0, t0, 7
+1:	sb t0, 0(a1)
+	addi a1, a1, 1
+	sb zero, 0(a1)
+	ret
+
+.globl parse_2h
+# a0 has byte to parse, a1 has address to put the string
+parse_2h:
+	pushra
+	srli t0, a0, 4
+	andi t2, a0, 0x0F
+	mv a0, t0
+	call parse_1h
+	mv a0, t2
+	call parse_1h
+	popra
+	ret
+
+.globl parse_4h
+# a0 has halfword to parse, a1 has address to put the string
+parse_4h:
+	pushra
+	andi t3, a0, 0xFF
+	srli a0, a0, 8
+	andi a0, a0, 0xFF
+	call parse_2h
+	mv a0, t3
+	call parse_2h
+	popra
+	ret
+
+.globl parse_8h
+# a0 has word to parse, a1 has address to put the string
+parse_8h:
+	pushra
+	mv t4, a0
+	srli a0, a0, 16
+	call parse_4h
+	mv a0, t4
+	call parse_4h
+	popra
 	ret
 
 .globl test_uart
@@ -149,6 +201,7 @@ test_uart:
     call uart_init       # Initialize UART
     la a0, msg           # Load address of message
     call uart_puts       # Print message
+
     li a0, 1234567890
     la a1, numstr
     call parse_n
@@ -156,10 +209,41 @@ test_uart:
     call uart_puts
     li a0, 10
     call uart_putc
+
+    la a1, numstr
+    li a0, 0x1234
+    call parse_4h
+    li a0, 0x5678
+    call parse_4h
+    li a0, 0x9ABC
+    call parse_4h
+    li a0, 0xDEF0
+    call parse_4h
+    la a0, numstr
+    call uart_puts
+    li a0, 10
+    call uart_putc
+
+    la a1, numstr
+    li a0, 0xFEDCBA98
+    call parse_8h
+    la a0, numstr
+    call uart_puts
+    li a0, 0x20
+    call uart_putc
+
+    la a1, numstr
+    li a0, 0x76543210
+    call parse_8h
+    la a0, numstr
+    call uart_puts
+    li a0, 10
+    call uart_putc
+
     popra
     ret
 
 .section .data
 msg: .asciz "Hello, RISC-V UART!\n"
-tmpstr: .dcb.b 16
-numstr: .dcb.b 16
+tmpstr: .dcb.b 32
+numstr: .dcb.b 32
