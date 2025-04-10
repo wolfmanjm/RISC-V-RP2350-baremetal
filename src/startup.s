@@ -2,8 +2,10 @@
 
 .globl _start
 
+.equ STACK_BASE, 0x20080000
+
 _start:
-	la sp, 0x20010000   # _stack_top   # Load stack pointer
+	la sp, STACK_BASE   # _stack_top   # Load stack pointer
 	j _sysinit      	# Call sysinit
 
 .section .text
@@ -16,7 +18,7 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 .word 0x11010142
 .word 0x00000344
 .word _start
-.word 0x20010000
+.word STACK_BASE
 .word 0x000004ff
 .word 0x00000000
 .word 0xab123579
@@ -284,14 +286,4 @@ _sysinit:
 	call main
 	wfi                 # Wait for interrupt (to save power)
 
-2:  j 2b
-
-.globl main
-main:
-	# call setup_uart
-	# call spi1_init
-	# call toggle_pin
-	call test_uart
-
-	wfi                 # Wait for interrupt (to save power)
 2:  j 2b

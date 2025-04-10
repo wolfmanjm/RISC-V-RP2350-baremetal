@@ -122,7 +122,8 @@ uart_getc:
 
 .globl parse_n
 # a0 number to parse, a1 destination address for string
-# returns number of characters in a0
+# terminates string with 0
+# returns address of next character in a1
 parse_n:
 	mv t0, a0
 	li t2, 10
@@ -141,11 +142,12 @@ parse_n:
 	addi t0, t0, 1
 	bne t3, t2, 2b
 	sb zero, 0(t0)		# 0 terminate
-	sub a0, a1, t0      # return number of characters
+	mv a1, t0
 	ret
 
 .globl parse_1h
 # a0 has nibble to parse, a1 has address to put the string
+# terminates string with 0
 # on return a1 points to next character
 parse_1h:
 	addi t0, a0, 0x30
@@ -159,6 +161,8 @@ parse_1h:
 
 .globl parse_2h
 # a0 has byte to parse, a1 has address to put the string
+# terminates string with 0
+# on return a1 points to next character
 parse_2h:
 	pushra
 	srli t0, a0, 4
@@ -172,6 +176,8 @@ parse_2h:
 
 .globl parse_4h
 # a0 has halfword to parse, a1 has address to put the string
+# terminates string with 0
+# on return a1 points to next character
 parse_4h:
 	pushra
 	andi t3, a0, 0xFF
@@ -185,6 +191,8 @@ parse_4h:
 
 .globl parse_8h
 # a0 has word to parse, a1 has address to put the string
+# terminates string with 0
+# on return a1 points to next character
 parse_8h:
 	pushra
 	mv t4, a0
