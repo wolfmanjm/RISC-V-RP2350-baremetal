@@ -29,21 +29,11 @@ setup_ticks:
 .globl delayus
 # a0 has delay in microseconds
 delayus:
-	addi sp, sp, -12
-	sw t0, 0(sp)
-	sw t1, 4(sp)
-	sw t2, 8(sp)
-
 	li t0, SIO_BASE
 	lw t1, _MTIME(t0)
 	add t2, t1, a0
 1:	lw t1, _MTIME(t0)
 	blt t1, t2, 1b  	# NOTE this will give a short timeout if mtime+tmo has wrapped
-
-	lw t0, 0(sp)
-	lw t1, 4(sp)
-	lw t2, 8(sp)
-	addi sp, sp, 12
 	ret
 
 .globl delayms

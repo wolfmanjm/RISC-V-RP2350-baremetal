@@ -39,13 +39,13 @@ blink:
     and t1, t1, t2  # Clear GPIO25 isolation bit
     sw t1, 0(t0)
 
-	li t0, SIO_BASE
-	li t2, GPIO25_MASK
+	li s1, SIO_BASE
+	li s2, GPIO25_MASK
 
-1:	sw t2, _GPIO_OUT_SET(t0)        # HIGH GPIO15
+1:	sw s2, _GPIO_OUT_SET(s1)        # HIGH GPIO15
 	li a0, 700
 	call delayms
-	sw t2, _GPIO_OUT_CLR(t0)        # LOW GPIO15
+	sw s2, _GPIO_OUT_CLR(s1)        # LOW GPIO15
 	li a0, 300
 	call delayms
     j 1b
