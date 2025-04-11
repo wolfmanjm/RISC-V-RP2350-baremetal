@@ -36,6 +36,11 @@ task :disasm do
 	sh "#{OBJDUMP} -d #{PROG}.elf > #{PROG}.lst"
 end
 
+
+task :probe do
+	sh "xterm -e ./run-picoprobe &"
+end
+
 task :gdb do
 	sh "xterm -e ./run-picoprobe &"
 	sh "#{TOOLSDIR}/riscv32-corev-elf-gdb -x gdb.cfg #{PROG}.elf"

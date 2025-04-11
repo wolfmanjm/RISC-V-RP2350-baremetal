@@ -1,3 +1,6 @@
+OUTPUT_ARCH(riscv)
+ENTRY(_start)
+
 MEMORY
 {
    flash(RX)  : ORIGIN = 0x10000000, LENGTH = 4M

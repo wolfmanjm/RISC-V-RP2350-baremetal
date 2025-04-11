@@ -2,10 +2,10 @@
 
 .globl _start
 
-.equ STACK_BASE, 0x20080000
+.equ STACK_TOP, 0x20080000 - 0x0100
 
 _start:
-	la sp, STACK_BASE   # _stack_top   # Load stack pointer
+	la sp, STACK_TOP   # Load stack pointer
 	j _sysinit      	# Call sysinit
 
 .section .text
@@ -18,7 +18,7 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 .word 0x11010142
 .word 0x00000344
 .word _start
-.word STACK_BASE
+.word STACK_TOP
 .word 0x000004ff
 .word 0x00000000
 .word 0xab123579
@@ -37,6 +37,11 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 .equ XOSC_DORMANT, XOSC_BASE + 0x08 # Crystal Oscillator pause control
 .equ XOSC_STARTUP, XOSC_BASE + 0x0C # Controls the startup delay
 .equ XOSC_COUNT,   XOSC_BASE + 0x10 # A down counter running at the XOSC frequency which counts to zero and stops.
+
+.equ TICKS_BASE, 0x40108000
+.equ _TICKS_CTRL, 0x00
+.equ _TICKS_CYCLES, 0x04
+.equ _TICKS_COUNT, 0x08
 
 .equ CLOCKS_BASE, 0x40010000
 .equ _CLK_REF_CTRL, 0x30
@@ -282,6 +287,9 @@ _sysinit:
 	li t1, CLOCKS_BASE
 	li t2, 1<<16
 	sw t2, _CLK_PERI_DIV(t1)
+
+	# setup the ticks based on clocks
+	call setup_ticks
 
 	call main
 	wfi                 # Wait for interrupt (to save power)
