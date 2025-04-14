@@ -1,4 +1,7 @@
 # Rakefile
+
+verbose(false)
+
 SRC_DIR = 'src'
 BUILD_DIR = 'build'
 PROG = 'main'
@@ -17,25 +20,26 @@ directory BUILD_DIR
 
 rule '.o' => proc { |t|
   src = t.sub(/^#{BUILD_DIR}\//, "#{SRC_DIR}/").sub(/\.o$/, '.s')
-  src
+  File.absolute_path(src)
 } do |t|
+  puts "Assembling #{t.source}"
   sh "#{ASSEMBLER} #{ASFLAGS} -o #{t.name} #{t.source}"
 end
 
-file PROG => object_files do
-  sh "#{LINKER} #{LDFLAGS} -o #{PROG}.elf #{object_files.join(' ')}"
+file "#{PROG}.elf" => object_files do |t|
+  puts "Linking #{t.name} to RAM"
+  sh "#{LINKER} #{LDFLAGS} -o #{t.name} #{object_files.join(' ')}"
 end
 
-task default: [PROG]
+task default: ["#{PROG}.elf"]
 
 task :clean do
-  rm_f object_files + [PROG]
+  rm_f object_files + ["#{PROG}.elf", "#{PROG}.lst"]
 end
 
 task :disasm do
 	sh "#{OBJDUMP} -d #{PROG}.elf > #{PROG}.lst"
 end
-
 
 task :probe do
 	sh "xterm -e ./run-picoprobe &"

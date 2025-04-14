@@ -4,9 +4,181 @@
 
 .equ STACK_TOP, 0x20080000 - 0x0100
 
+.equ RVCSR_MEIEA_OFFSET, 0x00000be0
+.equ RVCSR_MEIFA_OFFSET, 0x00000be2
+.equ RVCSR_MIE_MEIE_BITS,  0x00000800
+.equ RVCSR_MSTATUS_MIE_BITS,  0x00000008
+
 _start:
-	la sp, STACK_TOP   # Load stack pointer
-	j _sysinit      	# Call sysinit
+.option push
+.option norelax
+    la gp, 0
+.option pop
+    la sp, STACK_TOP
+    la a0, __vectors + 1
+    csrw mtvec, a0
+
+    # some init taken from crt0
+    # clear all IRQ force array bits. Iterate over array registers 0
+    # through 3 inclusive, allowing for up to 64 IRQs. Also clear the
+    # enable array.
+    li a0, 3
+1:  csrw RVCSR_MEIFA_OFFSET, a0
+    csrw RVCSR_MEIEA_OFFSET, a0
+    addi a0, a0, -1
+    bgez a0, 1b
+    # Setting the global external IRQ enable in mie prepares us to enable
+    # IRQs one-by-one later. Also clear the soft IRQ and timer IRQ enables:
+    li a0, RVCSR_MIE_MEIE_BITS
+    csrw mie, a0
+    # Set the global IRQ: we will now take any individual interrupt that is
+    # pending && enabled
+    csrsi mstatus, RVCSR_MSTATUS_MIE_BITS
+    # Take this chance to clear mscratch, which is used to detect nested
+    # exceptions in isr_riscv_machine_exception:
+    csrw mscratch, zero
+
+    # Only core 0 should run at this time; core 1 is normally
+    # sleeping in the bootrom at this point but check to be sure
+    csrr a0, mhartid
+    bnez a0, reenter_bootrom
+
+	j _sysinit      # Call sysinit
+
+.equ BOOTROM_ENTRY_OFFSET, 0x7dfc
+reenter_bootrom:
+    li a0, BOOTROM_ENTRY_OFFSET + 32 * 1024
+    la a1, 1f
+    csrw mtvec, a1
+    jr a0
+    # Go here if we trapped:
+.p2align 2
+1:  li a0, BOOTROM_ENTRY_OFFSET
+    jr a0
+
+isr_riscv_machine_exception:
+isr_riscv_machine_soft_irq:
+isr_riscv_machine_timer:
+1: j 1b
+
+.equ RVCSR_MEINEXT_OFFSET, 0x00000be4
+.equ RVCSR_MEINEXT_BITS,   0x800007fd
+.equ RVCSR_MEINEXT_RESET,  0x00000000
+.equ RVCSR_MEINEXT_UPDATE_BITS, 0x00000001
+
+isr_riscv_machine_external_irq:
+    addi sp, sp, -12
+    sw ra,  0(sp)
+    sw t0,  4(sp)
+    sw t1,  8(sp)
+
+    # figure out which interrupt
+    csrr t1, RVCSR_MEINEXT_OFFSET
+    # MSB will be set if there is no active IRQ at the current priority level
+    bltz t1, no_more_irqs
+dispatch_irq:
+	# Load indexed table entry and jump through it.
+	lui t0, %hi(__soft_vector_table)
+	add t0, t0, t1
+	lw t0, %lo(__soft_vector_table)(t0)
+	jalr ra, t0
+get_next_irq:
+	# Get the next-highest-priority IRQ
+	csrr t1, RVCSR_MEINEXT_OFFSET
+	# MSB will be set if there is no active IRQ at the current priority level
+	bgez t1, dispatch_irq
+
+no_more_irqs:
+    lw ra,  0(sp)
+    lw t0,  4(sp)
+    lw t1,  8(sp)
+	addi sp, sp, 12
+	mret
+
+unhandled_ext_irq:
+1: j 1b
+
+.section .data
+
+.p2align 6
+.global __vectors, __VECTOR_TABLE
+__VECTOR_TABLE:
+__vectors:
+# Hardware vector table for standard RISC-V interrupts, indicated by `mtvec`.
+.option push
+.option norvc
+.option norelax
+j isr_riscv_machine_exception
+.word 0
+.word 0
+j isr_riscv_machine_soft_irq
+.word 0
+.word 0
+.word 0
+j isr_riscv_machine_timer
+.word 0
+.word 0
+.word 0
+j isr_riscv_machine_external_irq
+.option pop
+
+.equ TIMER0_IRQ_0, 0x00
+
+.p2align 4
+.globl __soft_vector_table
+__soft_vector_table:
+.word unhandled_ext_irq # isr_irq0
+.word unhandled_ext_irq # isr_irq1
+.word unhandled_ext_irq # isr_irq2
+.word unhandled_ext_irq # isr_irq3
+.word unhandled_ext_irq # isr_irq4
+.word unhandled_ext_irq # isr_irq5
+.word unhandled_ext_irq # isr_irq6
+.word unhandled_ext_irq # isr_irq7
+.word unhandled_ext_irq # isr_irq8
+.word unhandled_ext_irq # isr_irq9
+.word unhandled_ext_irq # isr_irq10
+.word unhandled_ext_irq # isr_irq11
+.word unhandled_ext_irq # isr_irq12
+.word unhandled_ext_irq # isr_irq13
+.word unhandled_ext_irq # isr_irq14
+.word unhandled_ext_irq # isr_irq15
+.word unhandled_ext_irq # isr_irq16
+.word unhandled_ext_irq # isr_irq17
+.word unhandled_ext_irq # isr_irq18
+.word unhandled_ext_irq # isr_irq19
+.word unhandled_ext_irq # isr_irq20
+.word unhandled_ext_irq # isr_irq21
+.word unhandled_ext_irq # isr_irq22
+.word unhandled_ext_irq # isr_irq23
+.word unhandled_ext_irq # isr_irq24
+.word unhandled_ext_irq # isr_irq25
+.word unhandled_ext_irq # isr_irq26
+.word unhandled_ext_irq # isr_irq27
+.word unhandled_ext_irq # isr_irq28
+.word unhandled_ext_irq # isr_irq29
+.word unhandled_ext_irq # isr_irq30
+.word unhandled_ext_irq # isr_irq31
+.word unhandled_ext_irq # isr_irq32
+.word unhandled_ext_irq # isr_irq33
+.word unhandled_ext_irq # isr_irq34
+.word unhandled_ext_irq # isr_irq35
+.word unhandled_ext_irq # isr_irq36
+.word unhandled_ext_irq # isr_irq37
+.word unhandled_ext_irq # isr_irq38
+.word unhandled_ext_irq # isr_irq39
+.word unhandled_ext_irq # isr_irq40
+.word unhandled_ext_irq # isr_irq41
+.word unhandled_ext_irq # isr_irq42
+.word unhandled_ext_irq # isr_irq43
+.word unhandled_ext_irq # isr_irq44
+.word unhandled_ext_irq # isr_irq45
+.word unhandled_ext_irq # isr_irq46
+.word unhandled_ext_irq # isr_irq47
+.word unhandled_ext_irq # isr_irq48
+.word unhandled_ext_irq # isr_irq49
+.word unhandled_ext_irq # isr_irq50
+.word unhandled_ext_irq # isr_irq51
 
 .section .text
 # -----------------------------------------------------------------------------
@@ -25,7 +197,6 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 
 .section .text
 
-# clock setup taken from mecrisp-quintus by Mathias Koch
 .equ RESETS_BASE, 0x40020000
 .equ RESETS_PLL_USB, 15
 .equ RESETS_PLL_SYS, 14

@@ -6,7 +6,8 @@ main:
 	# call spi1_init
 	# call toggle_pin
 	# call test_uart
-	call blink
+	# call blink_test
+	call test_alarm
 
 	ebreak
 

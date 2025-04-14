@@ -1,5 +1,15 @@
 .section .text
-.globl blink
+
+.macro pushra
+  	addi sp, sp, -4
+  	sw ra, 0(sp)
+.endm
+
+.macro popra
+  	lw ra, 0(sp)
+  	addi sp, sp, 4
+.endm
+
 
 .equ SYSCTL_BASE,    0x40000000
 .equ CLK_EN_REG,     SYSCTL_BASE + 0x100   # Clock enable register
@@ -18,7 +28,8 @@
 .equ GPIO25_MASK,    (1 << 25)	# Bitmask for GPIO25
 
 
-blink:
+.globl blink_init
+blink_init:
     # Configure IOMUX for GPIO25
     li t0, IOMUX_GPIO25
     lw t1, 0(t0)
@@ -38,14 +49,28 @@ blink:
 	li t2, ~0x100
     and t1, t1, t2  # Clear GPIO25 isolation bit
     sw t1, 0(t0)
+	ret
 
+.globl blink_test
+blink_test:
+	call blink_init
 	li s1, SIO_BASE
 	li s2, GPIO25_MASK
-
-1:	sw s2, _GPIO_OUT_SET(s1)        # HIGH GPIO15
+1:	sw s2, _GPIO_OUT_SET(s1)        # HIGH GPIO25
 	li a0, 700
 	call delayms
-	sw s2, _GPIO_OUT_CLR(s1)        # LOW GPIO15
+	sw s2, _GPIO_OUT_CLR(s1)        # LOW GPIO25
 	li a0, 300
 	call delayms
     j 1b
+
+.globl blink_led
+blink_led:
+	li t1, SIO_BASE
+	li t2, GPIO25_MASK
+	beqz a0, led_off
+	sw t2, _GPIO_OUT_SET(t1)        # HIGH GPIO25
+	ret
+led_off:
+	sw t2, _GPIO_OUT_CLR(t1)        # LOW GPIO25
+	ret
