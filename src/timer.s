@@ -43,7 +43,7 @@
 
 .globl set_alarm
 
-# a0 alarm num, a1 address to execute, a2 timeus
+# a0 alarm num (0-3), a1 address to execute, a2 time in us
 # NOTE currently hardwired for alarm 0 a0 = 0
 set_alarm:
 	li t0, TIMER0_BASE | WRITE_SET
@@ -52,29 +52,22 @@ set_alarm:
 	sw t1, _INTE(t0)
 	# set the address to execute when this interrupt is hit
 	la t0, __soft_vector_table
-	sw a1, TIMER0_IRQ_0(t0)
+	addi t0, t0, TIMER0_IRQ_0
+	sh2add t0, a0, t0
+	sw a1, 0(t0)
 
 	# Enable interrupt...
-
-	#   irq_set_mask_n_enabled(num / 32, 1u << (num % 32), enabled);
-	#    if (enabled) {
-    #     hazard3_irqarray_clear(RVCSR_MEIFA_OFFSET, 2 * n, mask & 0xffffu);
-    #     hazard3_irqarray_clear(RVCSR_MEIFA_OFFSET, 2 * n + 1, mask >> 16);
-    #     hazard3_irqarray_set(RVCSR_MEIEA_OFFSET, 2 * n, mask & 0xffffu);
-    #     hazard3_irqarray_set(RVCSR_MEIEA_OFFSET, 2 * n + 1, mask >> 16);
-    #    } else {
-    #     hazard3_irqarray_clear(RVCSR_MEIEA_OFFSET, 2 * n, mask & 0xffffu);
-    #     hazard3_irqarray_clear(RVCSR_MEIEA_OFFSET, 2 * n + 1, mask >> 16);
-    #    }
-    # (a0/16) | (1<<(a0%16))
-	li t0, (0 | (1 << 16))
+    # we know the timer alarms are between 0-3 so in the first 16bit window of the csr
+   	bset t0, zero, a0  			# bit to set
+	slli t0, t0, 16				# upper 16 bits are bit to set, lower 5 bits are the window (0)
 	csrc RVCSR_MEIFA_OFFSET, t0
-	csrc RVCSR_MEIFA_OFFSET, zero
 	csrs RVCSR_MEIEA_OFFSET, t0
 
+	# setup timer alarm value
     li t0, TIMER0_BASE
     lw t1, _TIMERAWL(t0)
     add t1, t1, a2
+    sh2add t0, a0, t0
     sw t1, _ALARM0(t0)
 	ret
 
@@ -82,25 +75,36 @@ set_alarm:
 clear_alarm:
     # hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
 	li t0, TIMER0_BASE | WRITE_CLR
-	li t1, 1
-	sll t1, t1, a0
+   	bset t1, zero, a0  			# bit to clear
 	sw t1, _INTR(t0)
 
-	# disable interrupt too
-	li t0, (0 | (1 << 16))
-	csrs RVCSR_MEIEA_OFFSET, t0
-
+	# disable core interrupt too
+   	bset t0, zero, a0  			# bit to set
+	slli t0, t0, 16				# upper 16 bits are bit to clear, lower 5 bits are the window (0)
+	csrc RVCSR_MEIFA_OFFSET, t0
+	csrc RVCSR_MEIEA_OFFSET, t0
 	ret
 
-test_alarm_hit:
+# note for IRQs we need to save all registers we use in here
+alarm_irq:
+  	addi sp, sp, -16
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+  	sw t0, 8(sp)
+  	sw t1, 12(sp)
+
 	li a0, 0
-	pushra
 	call clear_alarm
-	popra
 
 	la t0, alarm_flag
 	li t1, 1
 	sw t1, 0(t0)
+
+    lw ra, 0(sp)
+    lw a0, 4(sp)
+  	lw t0, 8(sp)
+  	lw t1, 12(sp)
+	addi sp, sp, 16
 
 	ret
 
@@ -113,7 +117,7 @@ test_alarm:
 	sw zero, 0(t0)
 
 	li a0, 0
-	la a1, test_alarm_hit
+	la a1, alarm_irq
 	li a2, 1000000 # 1 second
 	pushra
 	call set_alarm
