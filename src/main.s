@@ -7,7 +7,8 @@ main:
 	# call toggle_pin
 	# call test_uart
 	# call blink_test
-	call test_alarm
+	# call test_alarm
+	call test_multi_core
 
 	ebreak
 

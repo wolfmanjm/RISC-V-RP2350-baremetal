@@ -95,6 +95,37 @@ no_more_irqs:
 	addi sp, sp, 12
 	mret
 
+.globl enable_irq
+# enable/disable (a1=1|0) the irq specified in a0
+enable_irq:
+		# irq_set_mask_n_enabled(num / 32, 1u << (num % 32), enabled);
+        # hazard3_irqarray_clear(RVCSR_MEIFA_OFFSET, 2 * n, mask & 0xffffu);
+        # hazard3_irqarray_clear(RVCSR_MEIFA_OFFSET, 2 * n + 1, mask >> 16);
+        # hazard3_irqarray_set(RVCSR_MEIEA_OFFSET, 2 * n, mask & 0xffffu);
+        # hazard3_irqarray_set(RVCSR_MEIEA_OFFSET, 2 * n + 1, mask >> 16);
+    srli t0, a0, 5  		# n
+    slli t0, t0, 1			# 2*n
+    andi t1, a0, 31 	# mask
+    bset t1, zero, t1 	# bitset
+	slli t2, t1, 16				# upper 16 bits are bit to set (mask),
+	or t2, t2, t0 				# lower 5 bits are the window (n)
+    beqz a1, 1f
+	csrc RVCSR_MEIFA_OFFSET, t2
+	csrs RVCSR_MEIEA_OFFSET, t2 # enable
+	j 2f
+1:	csrc RVCSR_MEIEA_OFFSET, t2 # disable
+2:	srli t2, t1, 16
+	addi t0, t0, 1
+	slli t2, t2, 16				# upper 16 bits are bit to set (mask),
+	or t2, t2, t0 				# lower 5 bits are the window (n)
+    beqz a1, 1f
+	csrc RVCSR_MEIFA_OFFSET, t2
+	csrs RVCSR_MEIEA_OFFSET, t2
+	j 2f
+1: 	csrc RVCSR_MEIEA_OFFSET, t2
+2:	ret
+
+
 unhandled_ext_irq:
 1: j 1b
 

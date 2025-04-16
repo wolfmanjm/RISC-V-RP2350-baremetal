@@ -46,6 +46,11 @@
 # a0 alarm num (0-3), a1 address to execute, a2 time in us
 # NOTE currently hardwired for alarm 0 a0 = 0
 set_alarm:
+  	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+  	sw a1, 8(sp)
+
 	li t0, TIMER0_BASE | WRITE_SET
 	li t1, 1
 	sll t1, t1, a0
@@ -56,12 +61,15 @@ set_alarm:
 	sh2add t0, a0, t0
 	sw a1, 0(t0)
 
-	# Enable interrupt...
-    # we know the timer alarms are between 0-3 so in the first 16bit window of the csr
-   	bset t0, zero, a0  			# bit to set
-	slli t0, t0, 16				# upper 16 bits are bit to set, lower 5 bits are the window (0)
-	csrc RVCSR_MEIFA_OFFSET, t0
-	csrs RVCSR_MEIEA_OFFSET, t0
+	# Enable interrupt TIMER0_IRQ_0 + alarm num
+	li t0, TIMER0_IRQ_0
+	add a0, t0, a0
+	li a1, 1
+	call enable_irq
+  	lw ra, 0(sp)
+  	lw a0, 4(sp)
+  	lw a1, 8(sp)
+  	addi sp, sp, 12
 
 	# setup timer alarm value
     li t0, TIMER0_BASE
@@ -81,7 +89,6 @@ clear_alarm:
 	# disable core interrupt too
    	bset t0, zero, a0  			# bit to set
 	slli t0, t0, 16				# upper 16 bits are bit to clear, lower 5 bits are the window (0)
-	csrc RVCSR_MEIFA_OFFSET, t0
 	csrc RVCSR_MEIEA_OFFSET, t0
 	ret
 

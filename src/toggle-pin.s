@@ -1,5 +1,4 @@
 .section .text
-.globl toggle_pin
 
 .equ SYSCTL_BASE,    0x40000000
 .equ CLK_EN_REG,     SYSCTL_BASE + 0x100   # Clock enable register
@@ -18,7 +17,7 @@
 
 .equ GPIO15_MASK,    (1 << 15)             # Bitmask for GPIO15
 
-
+.globl toggle_pin
 toggle_pin:
     # Configure IOMUX for GPIO15
     li t0, IOMUX_GPIO15
