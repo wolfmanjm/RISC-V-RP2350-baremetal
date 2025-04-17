@@ -11,6 +11,7 @@
 .equ _GPIO_CTRL, 0x004
 
 .equ SIO_BASE,       0xD0000000
+.equ _GPIO_IN,  	 0x04       # GPIO input register
 .equ _GPIO_OUT_REG,  0x10       # GPIO output register
 .equ _GPIO_OUT_SET,  0x18       # GPIO output set register
 .equ _GPIO_OUT_CLR,  0x20       # GPIO output clear register
@@ -87,3 +88,31 @@ pin_toggle:
     li t0, SIO_BASE
 	sw t1, _GPIO_OUT_XOR(t0) # set HIGH
 	ret
+
+.globl pin_get
+pin_get:
+    li t0, SIO_BASE
+	lw t0, _GPIO_IN(t0)
+	bext a0, t0, a0
+	ret
+
+.globl test_gpio
+test_gpio:
+	li a0, 25
+	call pin_output
+	li a0, 15
+	call pin_input_pu
+
+	# if pin15 is high then set pin25 high etc
+1:	li a0, 15
+	call delayms
+	li a0, 15
+	call pin_get
+	beqz a0, 2f
+	li a0, 25
+	call pin_high
+	j 1b
+
+2:	li a0, 25
+	call pin_low
+	j 1b
