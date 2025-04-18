@@ -27,4 +27,5 @@ I general this decomplicates a lot of what the pico-sdk does, at the expense of 
 spi is not yet completed.
 
 
+Some more info here http://blog.wolfman.com/articles/2025/3/23/bare-metal-gpio-twiddling-for-risc-v-on-rpi-pico2
 
