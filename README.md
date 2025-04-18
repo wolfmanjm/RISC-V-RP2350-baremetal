@@ -22,7 +22,7 @@ Currently we have gpio, multicore, timers, ticks, uart and some blink examples.
 I am particularly happy about the multicore as this is modelled after the pico-sdk but far less complicated.
 You simply pass in the address where you want core2 to run, the stack for core2 and call the routine.
 
-I general this decomplicates a lot of what the pico-sdk does, at the expense of no error checking and only usign a simplified set of functions.
+In general this decomplicates a lot of what the pico-sdk does, at the expense of no error checking and only using a simplified set of functions.
 
 spi is not yet completed.
 
