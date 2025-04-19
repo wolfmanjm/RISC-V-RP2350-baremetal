@@ -9,7 +9,8 @@ main:
 	# call blink_test
 	# call test_alarm
 	# call test_multi_core
-	call test_gpio
+	# call test_gpio
+	call test_breakout
 
 	ebreak
 

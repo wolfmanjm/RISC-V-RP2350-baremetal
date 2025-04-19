@@ -116,3 +116,29 @@ test_gpio:
 2:	li a0, 25
 	call pin_low
 	j 1b
+
+.globl test_breakout
+test_breakout:
+	# set pins to outputs
+	la s0, led_pins
+1:	lw a0, 0(s0)
+	beqz a0, 2f
+	call pin_output
+	addi s0, s0, 4
+	j 1b
+
+	# toggle each pin on or off
+2:	la s0, led_pins
+1:	lw a0, 0(s0)
+	beqz a0, 3f
+	call pin_toggle
+	addi s0, s0, 4
+	li a0, 100
+	call delayms
+	j 1b
+
+3: 	j 2b
+
+.section .data
+led_pins:
+	.word 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 26, 27, 28, 0
