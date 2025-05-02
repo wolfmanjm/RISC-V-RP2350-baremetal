@@ -9,13 +9,34 @@
 	.equ  _SSPMIS,  0x1C	# Masked interrupt status register, SSPMIS on page 3-11
 	.equ  _SSPICR,  0x20	# Interrupt clear register, SSPICR on page 3-11
 
+ 	# bitfields for SSPCR0
+    .equ m_SSPCR0_DSS, 0x0000000F
+    .equ o_SSPCR0_DSS, 0
+    .equ m_SSPCR0_FRF, 0x00000030
+    .equ o_SSPCR0_FRF, 4
+    .equ m_SSPCR0_SCR, 0x0000FF00
+    .equ o_SSPCR0_SCR, 8
+    .equ b_SSPCR0_SPH, 1<<7
+    .equ b_SSPCR0_SPO, 1<<6
+    # bitfields for SSPCR1
+    .equ b_SSPCR1_LBM, 1<<0
+    .equ b_SSPCR1_SSE, 1<<1
+    .equ b_SSPCR1_MS, 1<<2
+    .equ b_SSPCR1_SOD, 1<<3
+    # bitfields for SSPCPSR
+    .equ m_SSPCPSR_CPSDVSR, 0x000000FF
+    .equ o_SSPCPSR_CPSDVSR, 0
+
 	.equ  IO_BANK0_BASE, 0x40028000
 	.equ  _GPIO_STATUS, 0x00  		# pin# * 8
 	.equ  _GPIO_CTRL, 0x04
 
 	.equ  PADS_BANK0_BASE, 0x40038000
 
-	.equ  RESETS_RESET, 0x40020000
+	.equ RESETS_BASE, 0x40020000
+	.equ _RESETS_RESET, 0x000
+	.equ _RESETS_RESET_DONE, 0x008
+    .equ b_RESET_SPI1, 1<<19
 
 	.equ GPIO_FUNC_SPI, 1 
 
@@ -37,17 +58,17 @@
   	addi sp, sp, CELL
 .endm
 
-
 .section .text
 
 # reset SPI1
 spi1_reset:
-	li t1, RESETS_RESET
-	li t0, 1<<19		# set reset
-	sw t0, 0(t1)
-	sw zero, 0(t1)
-1:	lw t2, 8(t1)		# RESETS_RESET_DONE
-	and t2, t2, t0		# begin 1<<19 RESETS_RESET_DONE bit@ until
+	li t1, RESETS_BASE
+	li t0, b_RESET_SPI1		# set reset
+	sw t0, _RESETS_RESET(t1)
+
+	sw zero, _RESETS_RESET(t1)
+1:	lw t2, _RESETS_RESET_DONE(t1)		# RESETS_RESET_DONE
+	and t2, t2, t0						# begin 1<<19 RESETS_RESET_DONE bit@ until
 	beqz t2, 1b
 	ret
 
@@ -107,27 +128,56 @@ spi1_set_format:
 	popra
 	ret
 
+# Hard coded to 1MHz
+# to change set the 2 and 75 below to whatever find-spi-baudrate.cpp spits out for the requested baudrate
+spi1_set_baudrate:
+	pushra
+	li a0, 0
+	call spi1_enable
+
+	# set prescale, clear first
+	li t0, SPI1_BASE
+	lw t1, _SSPCPSR(t0)
+	li t2, ~(m_SSPCPSR_CPSDVSR)
+	and t1, t1, t2
+	li t2, (2)<<o_SSPCPSR_CPSDVSR 	# change this to prescale
+	or t1, t1, t2
+	sw t1, _SSPCPSR(t0)
+
+	# set postdiv, clear first
+	lw t1, _SSPCR0(t0)
+	li t2, ~(m_SSPCR0_SCR)
+	and t1, t1, t2
+	li t2, (75-1)<<o_SSPCR0_SCR 	# change this to postdiv
+	or t1, t1, t2
+	sw t1, _SSPCR0(t0)
+
+	li a0, 1
+	call spi1_enable
+	popra
+	ret
+
+
 # Initialize SPI1 as Master
 spi1_init:
 	pushra
+	# disable SPI
 	li a0, 0
-	jal spi1_enable
+	call spi1_enable
 
 	# set pins 10, 11, 12 to SPI
 	li a0, 10 # SCLK
 	li a1, 11 # MOSI
 	li a2, 12 # MISO
-	jal spi_set_pins
-
-	jal	spi1_reset
-
+	call spi_set_pins
+	call	spi1_reset
+	# set mode and baudrate
 	li a0, 8
 	li a1, SPI_MODE0
-	jal spi1_set_format
-	# set baudrate
-	# TODO
+	call spi1_set_format
+	call spi1_set_baudrate
 	# enable SPI
 	li a0, 1
-	jal spi1_enable
+	call spi1_enable
 	popra
 	ret

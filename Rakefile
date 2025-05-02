@@ -42,7 +42,7 @@ task :disasm do
 end
 
 task :probe do
-	sh "xterm -e ./run-picoprobe &"
+	sh "xterm -geometry 140x62+1800+0 -e ./run-picoprobe &"
 end
 
 task :gdb do
