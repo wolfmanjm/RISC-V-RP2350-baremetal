@@ -38,6 +38,17 @@
 	.equ  _GPIO_CTRL, 0x04
 
 	.equ  PADS_BANK0_BASE, 0x40038000
+    .equ _GPIO0, 0x00000004
+	    .equ b_GPIO_SLEWFAST, 1<<0
+	    .equ b_GPIO_SCHMITT, 1<<1
+	    .equ b_GPIO_PDE, 1<<2
+	    .equ b_GPIO_PUE, 1<<3
+	    .equ m_GPIO_DRIVE, 0x00000030
+	    .equ o_GPIO_DRIVE, 4
+	    .equ b_GPIO_IE, 1<<6
+	    .equ b_GPIO_OD, 1<<7
+	    .equ b_GPIO_ISO, 1<<8
+
 
 	.equ RESETS_BASE, 0x40020000
 	.equ _RESETS_RESET, 0x000
@@ -98,14 +109,14 @@ spi_set_pins:
     # Remove pad isolation control bits
 	li t1, PADS_BANK0_BASE
 	sh2add t2, a0, t1 		# get the offet for the pin (pin# * 4 + 4)
-	sw zero, 4(t2)
+	sw zero, _GPIO0(t2)
 	sh2add t2, a1, t1
-	sw zero, 4(t2)
+	sw zero, _GPIO0(t2)
 	sh2add t2, a2, t1
-	sw zero, 4(t2)
+	sw zero, _GPIO0(t2)
 	# set input enable on MISO
-	bseti t0, zero, 6  		# 1<<6
-	sw t0, 4(t2)
+	li t0, b_GPIO_IE
+	sw t0, _GPIO0(t2)
 	ret
 
 spi1_enable:
@@ -130,15 +141,15 @@ spi1_enable:
 # set SPI format a0 - #bits, a1 - mode
 spi1_set_format:
 	pushra
-	mv t0, a0
+	mv t4, a0
 	li a0, 0
 	call spi1_enable
 
-	addi t0, t0, -1
+	addi t0, t4, -1
 	andi t0, t0, 0xFF
 	andi t1, a1, 0x03
 	slli t1, t1, 6 			# SSPCR0_SPO | SSPCR0_SPH
-	or  t0, t0, t1
+	or  t0, t0	, t1
 	li t3, 0b11001111  		# SSPCR0_SPO | SSPCR0_SPH | m_SSPCR0_DSS
 	li t2, SPI1_BASE|WRITE_CLR
 	sw t3, _SSPCR0(t2)		# clear bits
@@ -226,8 +237,8 @@ spi1_write_read:
 	beqz t1, 4f
 	addi t1, t3, FIFO_DEPTH
 	bge t2, t1, 4f
-	lw t1, 0(a0)
-	sw t1, _SSPDR(t0)
+	lb t1, 0(a0)
+	sb t1, _SSPDR(t0)
 	addi t3, t3, -1
 	addi a0, a0, 1
 
@@ -236,8 +247,8 @@ spi1_write_read:
 	lw t1, _SSPSR(t0)
 	andi t1, t1, b_SSPSR_RNE
 	beqz t1, 1b
-	lw t1, _SSPDR(t0)
-	sw t1, 0(a1)
+	lb t1, _SSPDR(t0)
+	sb t1, 0(a1)
 	addi t2, t2, -1
 	addi a1, a1, 1
 	j 1b
@@ -246,3 +257,18 @@ spi1_write_read:
 3:	mv a0, a2
 	ret
 
+.globl test_spi
+test_spi:
+	pushra
+	call spi1_init
+
+	la a0, outbuf
+	la a1, inbuf
+	li a2, 5
+	call spi1_write_read
+	popra
+	ret
+
+.section .data
+outbuf: .ascii "12345"
+inbuf: .dcb.b 32
