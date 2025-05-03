@@ -26,6 +26,12 @@
     # bitfields for SSPCPSR
     .equ m_SSPCPSR_CPSDVSR, 0x000000FF
     .equ o_SSPCPSR_CPSDVSR, 0
+    # bitfields for SR
+    .equ b_SSPSR_TFE, 1<<0
+    .equ b_SSPSR_TNF, 1<<1
+    .equ b_SSPSR_RNE, 1<<2
+    .equ b_SSPSR_RFF, 1<<3
+    .equ b_SSPSR_BSY, 1<<4
 
 	.equ  IO_BANK0_BASE, 0x40028000
 	.equ  _GPIO_STATUS, 0x00  		# pin# * 8
@@ -45,6 +51,12 @@
 	.equ  SPI_MODE1, 0x01 
 	.equ  SPI_MODE2, 0x10 
 	.equ  SPI_MODE3, 0x11 
+
+.equ WRITE_NORMAL, (0x0000)   # Normal read write access
+.equ WRITE_XOR   , (0x1000)   # Atomic XOR on write
+.equ WRITE_SET   , (0x2000)   # Atomic bitmask set on write
+.equ WRITE_CLR   , (0x3000)   # Atomic bitmask clear on write
+
 
 	.equ CELL, 4
 
@@ -100,31 +112,41 @@ spi1_enable:
 	li t1, SPI1_BASE
 	lw t0, _SSPCR1(t1)
     beqz a0, 1f				# $02 SPI1_SSPCR1 rot if bis! else bic! then
-	bseti t0, t0, 1
+	ori t0, t0, b_SSPCR1_SSE
 	j 2f
-1:	bclri t0, t0, 1
+1:	andi t0, t0, ~b_SSPCR1_SSE
 2:  sw t0, _SSPCR1(t1)
 	ret
+
+# alternate using ATOMICs
+# 		beqz a0, 1f
+# 		li t1, SPI1_BASE|WRITE_SET
+# 		j 2f
+# 1:	li t1, SPI1_BASE|WRITE_CLR
+# 2:	li t0, b_SSPCR1_SSE
+# 		sw t0, _SSPCR1(t1)
+# 		ret
 
 # set SPI format a0 - #bits, a1 - mode
 spi1_set_format:
 	pushra
+	mv t0, a0
 	li a0, 0
-	jal spi1_enable
+	call spi1_enable
 
-	addi t0, a0, -1
+	addi t0, t0, -1
 	andi t0, t0, 0xFF
 	andi t1, a1, 0x03
-	slli t1, t1, 6
+	slli t1, t1, 6 			# SSPCR0_SPO | SSPCR0_SPH
 	or  t0, t0, t1
-	li t2, SPI1_BASE
-	lw t3, _SSPCR0(t2)
-	andi t3, t3, ~0b11001111  	# clear bits
-	or t3, t3, t0 				# set new bits
-	sw t3, _SSPCR0(t2)  		# set bits
+	li t3, 0b11001111  		# SSPCR0_SPO | SSPCR0_SPH | m_SSPCR0_DSS
+	li t2, SPI1_BASE|WRITE_CLR
+	sw t3, _SSPCR0(t2)		# clear bits
+	li t2, SPI1_BASE|WRITE_SET
+	sw t0, _SSPCR0(t2)  	# set bits
 
 	li a0, 1
-	jal spi1_enable
+	call spi1_enable
 	popra
 	ret
 
@@ -159,6 +181,7 @@ spi1_set_baudrate:
 
 
 # Initialize SPI1 as Master
+.globl spi1_init
 spi1_init:
 	pushra
 	# disable SPI
@@ -170,7 +193,8 @@ spi1_init:
 	li a1, 11 # MOSI
 	li a2, 12 # MISO
 	call spi_set_pins
-	call	spi1_reset
+	call spi1_reset
+
 	# set mode and baudrate
 	li a0, 8
 	li a1, SPI_MODE0
@@ -181,3 +205,44 @@ spi1_init:
 	call spi1_enable
 	popra
 	ret
+
+# send and receive data
+# a0 is *src, a1 is *dst, a2 is len
+.equ FIFO_DEPTH, 8
+.globl spi1_write_read
+spi1_write_read:
+	mv t2, a2 	# rx_remaining
+	mv t3, a2 	# tx_remaining
+	li t0, SPI1_BASE
+
+	# if rx_remaining and tx_remaining are zero we are done
+1:	bnez t2, 2f
+	beqz t3, 3f
+
+	# if (tx_remaining && spi_is_writable(spi) && rx_remaining < tx_remaining + fifo_depth)
+2:	beqz t3, 4f
+	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_TNF
+	beqz t1, 4f
+	addi t1, t3, FIFO_DEPTH
+	bge t2, t1, 4f
+	lw t1, 0(a0)
+	sw t1, _SSPDR(t0)
+	addi t3, t3, -1
+	addi a0, a0, 1
+
+	#if (rx_remaining && spi_is_readable(spi)) {
+4:	beqz t2, 1b
+	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_RNE
+	beqz t1, 1b
+	lw t1, _SSPDR(t0)
+	sw t1, 0(a1)
+	addi t2, t2, -1
+	addi a1, a1, 1
+	j 1b
+
+	# return len
+3:	mv a0, a2
+	ret
+
