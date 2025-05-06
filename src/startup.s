@@ -291,22 +291,6 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 .equ GPIO_OUT,       SIO_BASE + 0x010  # GPIO output value
 .equ GPIO_OE,        SIO_BASE + 0x030  # GPIO output enable
 
-.equ UART0_BASE, 0x40070000
-.equ UART0_DR   , UART0_BASE + 0x00 # Data Register, UARTDR
-.equ UART0_RSR  , UART0_BASE + 0x04 # Receive Status Register/Error Clear Register, UARTRSR/UARTECR
-.equ UART0_FR   , UART0_BASE + 0x18 # Flag Register, UARTFR
-.equ UART0_ILPR , UART0_BASE + 0x20 # IrDA Low-Power Counter Register, UARTILPR
-.equ UART0_IBRD , UART0_BASE + 0x24 # Integer Baud Rate Register, UARTIBRD
-.equ UART0_FBRD , UART0_BASE + 0x28 # Fractional Baud Rate Register, UARTFBRD
-.equ UART0_LCR_H, UART0_BASE + 0x2c # Line Control Register, UARTLCR_H
-.equ UART0_CR   , UART0_BASE + 0x30 # Control Register, UARTCR
-.equ UART0_IFLS , UART0_BASE + 0x34 # Interrupt FIFO Level Select Register, UARTIFLS
-.equ UART0_IMSC , UART0_BASE + 0x38 # Interrupt Mask Set/Clear Register, UARTIMSC
-.equ UART0_RIS  , UART0_BASE + 0x3c # Raw Interrupt Status Register, UARTRIS
-.equ UART0_MIS  , UART0_BASE + 0x40 # Masked Interrupt Status Register, UARTMIS
-.equ UART0_ICR  , UART0_BASE + 0x44 # Interrupt Clear Register, UARTICR
-.equ UART0_DMACR, UART0_BASE + 0x48 # DMA Control Register, UARTDMACR
-
 #  Define Atomic Register Access
 #   See section 2.1.3 "Atomic Register Access" in RP2350 datasheet
 

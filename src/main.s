@@ -9,10 +9,10 @@ main:
 	# call test_alarm
 	# call test_multi_core
 	# call test_gpio
+	call test_gpio_irq
 	# call test_breakout
-	call test_spi
-
+	# call test_spi
 	ebreak
 
-	wfi                 # Wait for interrupt (to save power)
-2:  j 2b
+2:	wfi                 # Wait for interrupt (to save power)
+	j 2b
