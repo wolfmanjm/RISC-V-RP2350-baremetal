@@ -1,3 +1,5 @@
+# based on the arduino library rotary
+
 .equ R_START, 0x0
 .equ R_CW_FINAL, 0x1
 .equ R_CW_BEGIN, 0x2
@@ -23,10 +25,10 @@
 
 .section .data
 .p2align 4
-count: .word 0
-state: .byte 0
+rotary_count: .word 0
+rotary_state: .byte 0
 enc_pins: .byte 0, 0
-ttable: # [7][4]
+rotary_ttable: # [7][4]
     # R_START
     .byte R_START,    R_CW_BEGIN,  R_CCW_BEGIN, R_START
     # R_CW_FINAL
@@ -56,14 +58,14 @@ process:
 	call pin_get
 	beqz a0, 2f
 	bseti t1, t1, 0 	# pinstate
-2:	la t0, ttable
-	la t2, state
+2:	la t0, rotary_ttable
+	la t2, rotary_state
 	lb t2, 0(t2)
 	andi t2, t2, 0x0F 	# state&0x0F
-	sh2add t2, t2, t0 	# ttable[state & 0xf][0]
-	add t2, t2, t1 		# ttable[state & 0xf][pinstate]
-	lb t0, 0(t2)		# state = ttable[state & 0xf][pinstate]
-	la t2, state
+	sh2add t2, t2, t0 	# rotary_ttable[state & 0xf][0]
+	add t2, t2, t1 		# rotary_ttable[state & 0xf][pinstate]
+	lb t0, 0(t2)		# state = rotary_ttable[state & 0xf][pinstate]
+	la t2, rotary_state
 	sb t0, 0(t2)
 	andi a0, t0, 0x30
 	popra
@@ -80,17 +82,17 @@ handle_enc_irq:
 	call process
 	li t0, DIR_CW
 	bne a0, t0, 1f
-	la t0, count	# ++count
+	la t0, rotary_count	# ++rotary_count
 	lw t1, 0(t0)
 	addi t1, t1, 1
 	sw t1, 0(t0)
 	j 2f
 1:	li t0, DIR_CCW
 	bne a0, t0, 2f
-	la t0, count
+	la t0, rotary_count
 	lw t1, 0(t0)
 	addi t1, t1, -1
-	sw t1, 0(t0)	# --count
+	sw t1, 0(t0)	# --rotary_count
 
 2: 	lw ra, 0(sp)
   	lw a0, 4(sp)
@@ -104,10 +106,10 @@ handle_enc_irq:
 .globl rotary_init
 rotary_init:
 	pushra
-	la t0, state
+	la t0, rotary_state
 	li t1, R_START
     sb t1, 0(t0)
-    la t0, count
+    la t0, rotary_count
     sw zero, 0(t0)
    	la t0, enc_pins
 	sb a0, 0(t0)
@@ -131,6 +133,12 @@ rotary_init:
     popra
     ret
 
+.globl get_rotary_count
+get_rotary_count:
+	la t0, rotary_count
+	lw a0, 0(t0)
+	ret
+
 .globl test_rotary
 test_rotary:
 	pushra
@@ -143,7 +151,7 @@ test_rotary:
     call uart_puts       # Print message
 
 1:	wfi
-	la t0, count
+	la t0, rotary_count
     lw a0, 0(t0)
     la t1, lstcnt 		# if changed then print
     lw t2, 0(t1)
