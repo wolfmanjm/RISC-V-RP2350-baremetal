@@ -120,11 +120,11 @@ uart_getc:
 	lbu a0, _UART0_DR(t0)
 	ret
 
-.globl parse_n
+.globl parse_un
 # a0 number to parse, a1 destination address for string
 # terminates string with 0
 # returns address of next character in a1
-parse_n:
+parse_un:
 	mv t0, a0
 	li t2, 10
 	la t3, tmpstr
@@ -143,6 +143,20 @@ parse_n:
 	bne t3, t2, 2b
 	sb zero, 0(t0)		# 0 terminate
 	mv a1, t0
+	ret
+
+.globl parse_n
+parse_n:
+	bltz a0, 1f
+	j parse_un
+	# handle negative case
+1:	pushra
+	neg a0, a0
+	li t0, '-'
+	sb t0, 0(a1)
+	addi a1, a1, 1
+	call parse_un
+2:	popra
 	ret
 
 .globl parse_1h
