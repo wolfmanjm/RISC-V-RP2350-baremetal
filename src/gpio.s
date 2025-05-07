@@ -106,21 +106,23 @@ pin_get:
 	bext a0, t0, a0
 	ret
 
-# GPIO Interrupt Handling We have a table of enabed GPIO interrupts so we only
-# need to check them ratherthan the entire GPIO range there is also a table
+# GPIO Interrupt Handling We have a table of enabled GPIO interrupts so we only
+# need to check them rather than the entire GPIO range. There is also a table
 # of callbacks for each enabled GPIO. The size of this table is configurable
-# to the number of GPIO that may need to be enabled for interrupt
-.equ N_GPIO_INTERRUPTS, 10
+# to the number of GPIOs that may need to be enabled for interrupt
 .section .data
+.equ N_GPIO_INTERRUPTS, 10
 gpio_interrupt_enabled:
 	# each byte contains the GPIO number that is enabled, 0xFF if not enabled
 	.dcb.b N_GPIO_INTERRUPTS, 0xFF
 
-.align 4
+.p2align 4
 gpio_interrupt_callbacks:
 # has the address of the routine to call when the interrupt is triggered, the
 # same position in the table as the gpio_interrupt_enabled table
 	.dcb.l N_GPIO_INTERRUPTS
+
+.section .text
 
 .include "interrupt_vectors.s"
 
@@ -129,7 +131,6 @@ gpio_interrupt_callbacks:
   .equ _PROC0_INTE0, 0x00000248
   .equ _PROC0_INTS0, 0x00000278
 
-.section .text
 
 # acks IRQ for pin in a0 for events in a1
 gpio_ack_irq:
@@ -146,7 +147,7 @@ gpio_ack_irq:
 # called when any GPIO has an interrupt
 # look through the enabled GPIOs and call the callback if found after ack'ing the IRQ
 gpio_default_irq_handler:
-	addi sp, sp, -28
+	addi sp, sp, -32
   	sw ra, 0(sp)
   	sw a0, 4(sp)
   	sw a1, 8(sp)
@@ -154,18 +155,19 @@ gpio_default_irq_handler:
   	sw t1, 16(sp)
   	sw t2, 20(sp)
   	sw t3, 24(sp)
+ 	sw t4, 28(sp)
 
   	# find the interrupt that caused this
   	# we only check the enabled interrupts in the table
-	li t1, 0 			# index into the table
-1:	la t0, gpio_interrupt_enabled
-	lb t3, 0(t0)
+	li t4, (IO_BANK0_BASE+_PROC0_INTS0)		# TODO needs to determine core, we assume 0 here
+	li t1, 0 								# index into the table
+	la t0, gpio_interrupt_enabled
+1:	lb t3, 0(t0)
 	li t2, -1
 	beq t2, t3, 2f 		# not enabled
 	# check if this is the one
-	li t0, (IO_BANK0_BASE+_PROC0_INTS0)		# TODO needs to determine core, we assume 0 here
 	srli t2, t3, 3 			# gpio/8
-	sh2add t2, t2, t0		# register offset for this gpio
+	sh2add t2, t2, t4		# register offset for this gpio
 	lw t2, 0(t2)
 	andi t3, t3, 0b0111		# gpio mod 8
 	slli t3, t3, 2 			# (gpio mod 8) * 4
@@ -177,7 +179,10 @@ gpio_default_irq_handler:
 	addi t0, t0, 1
 	li t2, N_GPIO_INTERRUPTS
 	bne t1, t2, 1b
-	ebreak 		# not found, this is a problem as we can't clear the interrupt
+
+ 	# not found, this is a problem as we can't clear the interrupt
+	ebreak
+4:	j 4b
 
   	# ack it, t1 has the index, t2 has the event
 3:	la t0, gpio_interrupt_enabled
@@ -192,6 +197,7 @@ gpio_default_irq_handler:
 	la t0, gpio_interrupt_callbacks
 	sh2add t0, t1, t0
 	lw t0, 0(t0)
+	# call the handler for this GPIO irq
 	jalr ra, t0
 
 	# restore regs we used here
@@ -202,7 +208,8 @@ gpio_default_irq_handler:
   	lw t1, 16(sp)
   	lw t2, 20(sp)
   	lw t3, 24(sp)
-	addi sp, sp, 28
+  	lw t4, 28(sp)
+	addi sp, sp, 32
 
 	ret
 
@@ -282,7 +289,7 @@ gpio_disable_interrupt:
 	sh2add t2, t2, t0		# register offset for this gpio
 	andi t1, t1, 0b0111		# gpio mod 8
 	slli t1, t1, 2 			# (gpio mod 8) * 4
-	li t3, 0b1111			# clear all the bits
+	li t3, 0b1111			# clear all the bits (Is this correct or should we specify the mask?)
 	sll t3, t3, t1 			# shift event into correct position
 	sw t3, 0(t2) 			# clear event bits
 	ret

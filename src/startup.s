@@ -56,6 +56,7 @@ reenter_bootrom:
 1:  li a0, BOOTROM_ENTRY_OFFSET
     jr a0
 
+# default handlers so we can see what the exception was
 isr_riscv_machine_exception:
 1: j 1b
 isr_riscv_machine_soft_irq:
@@ -96,6 +97,7 @@ no_more_irqs:
     lw t1,  8(sp)
 	addi sp, sp, 12
 	mret
+
 
 .globl enable_irq
 # enable/disable (a1=1|0) the irq specified in a0
