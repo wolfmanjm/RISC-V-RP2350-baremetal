@@ -56,10 +56,8 @@ set_alarm:
 	sll t1, t1, a0
 	sw t1, _INTE(t0)
 	# set the address to execute when this interrupt is hit
-	la t0, __soft_vector_table
-	addi t0, t0, TIMER0_IRQ_0
-	sh2add t0, a0, t0
-	sw a1, 0(t0)
+	li a0, TIMER0_IRQ_0
+	call set_irq_vector
 
 	# Enable interrupt TIMER0_IRQ_0 + alarm num
 	li t0, TIMER0_IRQ_0

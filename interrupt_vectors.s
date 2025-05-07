@@ -50,3 +50,9 @@
 .equ SPARE_IRQ_3, 49 # Select SPARE IRQ 3
 .equ SPARE_IRQ_4, 50 # Select SPARE IRQ 4
 .equ SPARE_IRQ_5, 51 # Select SPARE IRQ 5
+
+# GPIO events must be set to one or all of these
+.equ b_INTR_LEVEL_LOW, 1<<0
+.equ b_INTR_LEVEL_HIGH, 1<<1
+.equ b_INTR_EDGE_LOW, 1<<2
+.equ b_INTR_EDGE_HIGH, 1<<3

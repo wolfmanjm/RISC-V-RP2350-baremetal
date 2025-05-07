@@ -57,7 +57,9 @@ reenter_bootrom:
     jr a0
 
 isr_riscv_machine_exception:
+1: j 1b
 isr_riscv_machine_soft_irq:
+1: j 1b
 isr_riscv_machine_timer:
 1: j 1b
 
@@ -125,6 +127,13 @@ enable_irq:
 1: 	csrc RVCSR_MEIEA_OFFSET, t2
 2:	ret
 
+# a0 has the vector to set and a1 has the callback address
+.globl set_irq_vector
+set_irq_vector:
+	la t0, __soft_vector_table
+	sh2add t0, a0, t0
+	sw a1, 0(t0)
+	ret
 
 unhandled_ext_irq:
 1: j 1b

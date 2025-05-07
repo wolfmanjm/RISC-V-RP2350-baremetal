@@ -116,18 +116,13 @@ gpio_interrupt_enabled:
 	# each byte contains the GPIO number that is enabled, 0xFF if not enabled
 	.dcb.b N_GPIO_INTERRUPTS, 0xFF
 
+.align 4
 gpio_interrupt_callbacks:
 # has the address of the routine to call when the interrupt is triggered, the
 # same position in the table as the gpio_interrupt_enabled table
 	.dcb.l N_GPIO_INTERRUPTS
 
 .include "interrupt_vectors.s"
-
-# events must be set to one or all of these
-.equ b_INTR_LEVEL_LOW, 1<<0
-.equ b_INTR_LEVEL_HIGH, 1<<1
-.equ b_INTR_EDGE_LOW, 1<<2
-.equ b_INTR_EDGE_HIGH, 1<<3
 
 .equ IO_BANK0_BASE, 0x40028000
   .equ _PROC0_INTR0, 0x00000230
@@ -165,7 +160,7 @@ gpio_default_irq_handler:
 	li t1, 0 			# index into the table
 1:	la t0, gpio_interrupt_enabled
 	lb t3, 0(t0)
-	li t2, 0xFF
+	li t2, -1
 	beq t2, t3, 2f 		# not enabled
 	# check if this is the one
 	li t0, (IO_BANK0_BASE+_PROC0_INTS0)		# TODO needs to determine core, we assume 0 here
@@ -187,7 +182,7 @@ gpio_default_irq_handler:
   	# ack it, t1 has the index, t2 has the event
 3:	la t0, gpio_interrupt_enabled
 	add t0, t0, t1
-	lw a0, 0(t0)		# get the gpio number
+	lb a0, 0(t0)		# get the gpio number
 	mv a1, t2 			# this is the event mask that caused the interrupt
 	mv t3, t1			# save the index
 	call gpio_ack_irq 	# ack it to clear it
@@ -218,7 +213,7 @@ gpio_enable_interrupt:
 	# find unused entry
 	li t1, 0
 	la t0, gpio_interrupt_enabled
-	li t3, 0xFF
+	li t3, -1
 	li t4, N_GPIO_INTERRUPTS
 1:	lb t2, 0(t0)
 	beq t2, t3, 2f
@@ -248,12 +243,10 @@ gpio_enable_interrupt:
 	sw t1, 0(t2) 			# set event bits
 
 	# enable shared IRQ
-	# set the address to execute when this interrupt is hit
-	la t0, __soft_vector_table
-	li t1, IO_IRQ_BANK0
-	sh2add t0, t1, t0
-	la t1, gpio_default_irq_handler
-	sw t1, 0(t0)
+	# set the shared IRQ handler for all GPIO IRQs
+	li a0, IO_IRQ_BANK0
+	la a1, gpio_default_irq_handler
+	call set_irq_vector
 
 	li a0, IO_IRQ_BANK0
 	li a1, 1
