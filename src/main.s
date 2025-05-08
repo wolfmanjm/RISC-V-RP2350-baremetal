@@ -12,7 +12,8 @@ main:
 	# call test_gpio_irq
 	# call test_breakout
 	# call test_spi
-	call test_rotary
+	# call test_rotary
+	call test_tft
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)

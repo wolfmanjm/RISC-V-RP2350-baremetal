@@ -127,14 +127,16 @@ gpio_interrupt_callbacks:
 .include "interrupt_vectors.s"
 
 .equ IO_BANK0_BASE, 0x40028000
-  .equ _PROC0_INTR0, 0x00000230
+  .equ _INTR0, 0x00000230
   .equ _PROC0_INTE0, 0x00000248
   .equ _PROC0_INTS0, 0x00000278
+  .equ _PROC1_INTE0, 0x00000290
+  .equ _PROC1_INTS0, 0x000002C0
 
 
 # acks IRQ for pin in a0 for events in a1
 gpio_ack_irq:
-	li t0, (IO_BANK0_BASE+_PROC0_INTR0)		# TODO needs to determine core, we assume 0 here
+	li t0, (IO_BANK0_BASE+_INTR0)
 	mv t1, a0
 	srli t2, t1, 3 			# gpio/8
 	sh2add t2, t2, t0		# register offset for this gpio
@@ -159,8 +161,12 @@ gpio_default_irq_handler:
 
   	# find the interrupt that caused this
   	# we only check the enabled interrupts in the table
-	li t4, (IO_BANK0_BASE+_PROC0_INTS0)		# TODO needs to determine core, we assume 0 here
-	li t1, 0 								# index into the table
+    csrr t0, mhartid			# which core are we on
+    bnez t0, 11f
+	li t4, (IO_BANK0_BASE+_PROC0_INTS0)
+	j 21f
+11:	li t4, (IO_BANK0_BASE+_PROC1_INTS0)
+21:	li t1, 0 								# index into the table
 	la t0, gpio_interrupt_enabled
 1:	lb t3, 0(t0)
 	li t2, -1
@@ -240,8 +246,12 @@ gpio_enable_interrupt:
 	mv a1, a2 			# events
 	call gpio_ack_irq
 	# enable GPIOs IRQ
-	li t0, (IO_BANK0_BASE+_PROC0_INTE0)|WRITE_SET 	# TODO needs to determine core, we assume 0 here
-	mv t1, a0
+    csrr a0, mhartid
+    bnez a0, 3f
+	li t0, (IO_BANK0_BASE+_PROC0_INTE0)|WRITE_SET
+	j 4f
+3:	li t0, (IO_BANK0_BASE+_PROC1_INTE0)|WRITE_SET
+4:	mv t1, a0
 	srli t2, t1, 3 			# gpio/8
 	sh2add t2, t2, t0		# register offset for this gpio
 	andi t1, t1, 0b0111		# gpio mod 8
@@ -283,8 +293,12 @@ gpio_disable_interrupt:
 	sh2add t0, t1, t0
 	sw zero, 0(t0)
 	# disable the GPIOs IRQ in H/W
-	li t0, (IO_BANK0_BASE+_PROC0_INTE0)|WRITE_CLR 	# TODO needs to determine core, we assume 0 here
-	mv t1, a0
+    csrr a0, mhartid		# which core are we on
+    bnez a0, 3f
+	li t0, (IO_BANK0_BASE+_PROC0_INTE0)|WRITE_CLR
+	j 4f
+3:	li t0, (IO_BANK0_BASE+_PROC1_INTE0)|WRITE_CLR
+4:	mv t1, a0
 	srli t2, t1, 3 			# gpio/8
 	sh2add t2, t2, t0		# register offset for this gpio
 	andi t1, t1, 0b0111		# gpio mod 8

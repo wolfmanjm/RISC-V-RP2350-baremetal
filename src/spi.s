@@ -32,6 +32,10 @@
     .equ b_SSPSR_RNE, 1<<2
     .equ b_SSPSR_RFF, 1<<3
     .equ b_SSPSR_BSY, 1<<4
+    # bitfields for SSPICR
+    .equ b_SSPICR_RORIC, 1<<0
+    .equ b_SSPICR_RTIC, 1<<1
+
 
 	.equ  IO_BANK0_BASE, 0x40028000
 	.equ  _GPIO_STATUS, 0x00  		# pin# * 8
@@ -256,6 +260,68 @@ spi1_write_read:
 	# return len
 3:	mv a0, a2
 	ret
+
+# send data
+# a0 is *src, a1 is len
+.globl spi1_write
+spi1_write:
+	mv t2, a1 	# tx_remaining
+	li t0, SPI1_BASE
+
+	# if tx_remaining is zero we are done
+1:	beqz t2, 3f
+2:	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_TNF
+	beqz t1, 2b
+	lb t1, 0(a0)
+	sb t1, _SSPDR(t0)
+	addi t2, t2, -1
+	addi a0, a0, 1
+	j 1b
+
+    # Drain RX FIFO, then wait for shifting to finish (which may be *after*
+    # TX FIFO drains), then drain RX FIFO again
+spi1_drain_fifo:
+3:	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_RNE
+	beqz t1, 4f
+	lb t1, _SSPDR(t0)
+	j 3b
+
+4:	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_BSY
+	bnez t1, 4b
+
+5:	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_RNE
+	beqz t1, 6f
+	lb t1, _SSPDR(t0)
+	j 5b
+
+6:	li t1, b_SSPICR_RORIC
+	sw t1, _SSPICR(t0)
+
+	# return len
+	mv a0, a1
+	ret
+
+# a0 has 16bit data to write, a1 has the number of 16bits to write
+.globl spi1_write16n
+spi1_write16n:
+	mv t2, a1 	# tx_remaining
+	li t0, SPI1_BASE
+1:	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_TNF
+	beqz t1, 1b
+	srli t1, a0, 8
+	sb t1, _SSPDR(t0)	# write upper byte
+2:	lw t1, _SSPSR(t0)
+	andi t1, t1, b_SSPSR_TNF
+	beqz t1, 2b
+	sb a0, _SSPDR(t0)	# write lower byte
+	addi t2, t2, -1
+ 	bnez t2, 1b
+ 	j spi1_drain_fifo
 
 .globl test_spi
 test_spi:
