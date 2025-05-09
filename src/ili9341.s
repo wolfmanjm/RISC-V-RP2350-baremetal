@@ -109,6 +109,7 @@ INIT_CMD:
  .byte  3, FRMCTR1  , 0x00, 0x10                     # Frame rate ctrl
  .byte  0,  0  										 # terminate list
 
+.p2align 4
 spi_data: .dcb.b 4
 
 .section .text
@@ -267,9 +268,10 @@ rgb_565:
 rgb_888_565:
 	li t0, 0xF80000
 	and t0, a0, t0
+	srli t0, t0, 8
 	li t1, 0x00FC00
     and t1, a0, t1
-    slli t1, t1, 3
+    srli t1, t1, 4
     or t0, t0, t1
     andi t1, a0, 0x0000FF
     srli t1, t1, 3
@@ -325,6 +327,11 @@ ili9341_clearscreen:
 test_tft:
 	call ili9341_init
 
+1:	li a0, 0
+	call ili9341_clearscreen
+	li a0, 1000
+	call delayms
+
 	li a0, 0xFF0000
 	call rgb_888_565
 	call ili9341_clearscreen
@@ -343,5 +350,5 @@ test_tft:
 	li a0, 1000
 	call delayms
 
-	j test_tft
+	j 1b
 	ret

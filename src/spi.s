@@ -165,8 +165,8 @@ spi1_set_format:
 	popra
 	ret
 
-# Hard coded to 1MHz
-# to change set the 2 and 75 below to whatever find-spi-baudrate.cpp spits out for the requested baudrate
+# Hard coded to 4MHz
+# to change set the 2 and 19 below to whatever find-spi-baudrate.cpp spits out for the requested baudrate
 spi1_set_baudrate:
 	pushra
 	li a0, 0
@@ -185,7 +185,7 @@ spi1_set_baudrate:
 	lw t1, _SSPCR0(t0)
 	li t2, ~(m_SSPCR0_SCR)
 	and t1, t1, t2
-	li t2, (75-1)<<o_SSPCR0_SCR 	# change this to postdiv
+	li t2, (19-1)<<o_SSPCR0_SCR 	# change this to postdiv
 	or t1, t1, t2
 	sw t1, _SSPCR0(t0)
 
@@ -314,11 +314,11 @@ spi1_write16n:
 	andi t1, t1, b_SSPSR_TNF
 	beqz t1, 1b
 	srli t1, a0, 8
-	sb t1, _SSPDR(t0)	# write upper byte
+	sb t1, _SSPDR(t0)	# upper byte
 2:	lw t1, _SSPSR(t0)
 	andi t1, t1, b_SSPSR_TNF
 	beqz t1, 2b
-	sb a0, _SSPDR(t0)	# write lower byte
+	sb a0, _SSPDR(t0)	# lower byte
 	addi t2, t2, -1
  	bnez t2, 1b
  	j spi1_drain_fifo
