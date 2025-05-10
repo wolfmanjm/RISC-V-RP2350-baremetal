@@ -28,7 +28,7 @@ end
 
 file "#{PROG}.elf" => object_files do |t|
   puts "Linking #{t.name} to RAM"
-  sh "#{LINKER} #{LDFLAGS} -o #{t.name} #{object_files.join(' ')}"
+  sh "#{LINKER} #{LDFLAGS} --print-memory-usage -o #{t.name} #{object_files.join(' ')}"
 end
 
 task default: ["#{PROG}.elf"]

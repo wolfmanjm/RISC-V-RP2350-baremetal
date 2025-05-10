@@ -58,8 +58,9 @@ reenter_bootrom:
 
 # default handlers so we can see what the exception was
 isr_riscv_machine_exception:
-	csrr t5, mepc
+	csrr ra, mepc
 	csrr t6, mcause
+	ebreak
 1: j 1b
 
 isr_riscv_machine_soft_irq:

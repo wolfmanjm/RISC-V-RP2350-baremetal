@@ -81,7 +81,7 @@
 .equ ILI9341_HEIGHT, defHEIGHT
 .equ ILI9341_SCREEN_SIZE, ILI9341_WIDTH * ILI9341_HEIGHT
 
-.section .data
+.section .rodata
 # columns: 1 = # of params, 2 = command, 3 .. = params
 INIT_CMD:
  .byte  4, 0xEF, 0x03, 0x80, 0x02
@@ -109,8 +109,11 @@ INIT_CMD:
  .byte  3, FRMCTR1  , 0x00, 0x10                     # Frame rate ctrl
  .byte  0,  0  										 # terminate list
 
+.section .data
 .p2align 4
 spi_data: .dcb.b 4
+fg_color: .word 0
+bg_color: .word 0
 
 .section .text
 dc_low:
@@ -278,23 +281,30 @@ rgb_888_565:
 	or a0, t0, t1 		# a0 : RGB565
 	ret
 
-# a0: rgb in 565
-.globl ili9341_clearscreen
-ili9341_clearscreen:
-	addi sp, sp, -8
+# a0: xs, a1: xe, a2: ys, a3: ye
+.globl ili9341_set_window_location
+ili9341_set_window_location:
+	addi sp, sp, -28
   	sw ra, 0(sp)
-  	sw s0, 4(sp)
+  	sw s1, 4(sp)
+  	sw s2, 8(sp)
+  	sw a0, 12(sp)
+  	sw a1, 16(sp)
+  	sw a2, 20(sp)
+  	sw a3, 24(sp)
 
-  	mv s0, a0 			# save RGB
-	# set window location
+  	mv s1, a0		# save xs, xe
+  	mv s2, a1
+
 	li a0, SET_COLUMN
 	call write_cmd
 	la t1, spi_data
-	sh zero, 0(t1)
-	li t2, ILI9341_WIDTH-1
-	rev8 t2, t2        # Reverse all 4 bytes as chip required bigendian
-	srli t2, t2, 16    # place swapped halfword at LSB (16 bits)
-	sh t2, 2(t1)
+	rev8 s1, s1        # Reverse all 4 bytes as chip required bigendian
+	srli s1, s1, 16
+	sh s1, 0(t1)
+	rev8 s2, s2        # Reverse all 4 bytes as chip required bigendian
+	srli s2, s2, 16
+	sh s2, 2(t1)
 	la a0, spi_data
 	li a1, 4
 	call write_data
@@ -302,26 +312,71 @@ ili9341_clearscreen:
 	li a0, SET_PAGE
 	call write_cmd
 	la t1, spi_data
-	sh zero, 0(t1)
-	li t2, ILI9341_HEIGHT-1
-	rev8 t2, t2        # Reverse all 4 bytes as chip required bigendian
-	srli t2, t2, 16    # place swapped halfword at LSB (16 bits)
-	sh t2, 2(t1)
+	rev8 a2, a2        # Reverse all 4 bytes as chip required bigendian
+	srli a2, a2, 16
+	sh a2, 0(t1)
+	rev8 a3, a3        # Reverse all 4 bytes as chip required bigendian
+	srli a3, a3, 16    # place swapped halfword at LSB (16 bits)
+	sh a3, 2(t1)
 	la a0, spi_data
 	li a1, 4
 	call write_data
 
+  	lw ra, 0(sp)
+  	lw s1, 4(sp)
+  	lw s2, 8(sp)
+   	lw a0, 12(sp)
+  	lw a1, 16(sp)
+  	lw a2, 20(sp)
+  	lw a3, 24(sp)
+ 	addi sp, sp, 28
+  	ret
+
+# a0: rgb in 565
+.globl ili9341_clearscreen
+ili9341_clearscreen:
+	pushra
+  	mv t6, a0
+
+	mv a0, zero
+	li a1, ILI9341_WIDTH-1
+	mv a2, zero
+	li a3, ILI9341_HEIGHT-1
+	call ili9341_set_window_location
+
 	# write color data
     li a0, WRITE_RAM
     call write_cmd
-    mv a0, s0
+    mv a0, t6
     li a1, ILI9341_SCREEN_SIZE
     call write_data16n
 
-  	lw ra, 0(sp)
-  	lw s0, 4(sp)
-  	addi sp, sp, 8
+    popra
   	ret
+
+# a0: xs, a1: xe, a2: ys, a3: ye
+.globl ili9341_fillrect
+ili9341_fillrect:
+	pushra
+	call ili9341_set_window_location
+
+	sub t0, a1, a0	# xsize
+	addi t0, t0, 1
+	sub t1, a3, a2	# ysize
+	addi t1, t1, 1
+	mul t6, t0, t1	# n writes
+
+	# write color data
+    li a0, WRITE_RAM
+    call write_cmd
+    la a0, fg_color
+    lh a0, 0(a0)
+    mv a1, t6
+    call write_data16n
+    popra
+    ret
+
+#.include "font16.s"
 
 .globl test_tft
 test_tft:
@@ -347,6 +402,18 @@ test_tft:
 	li a0, 0x0000FF
 	call rgb_888_565
 	call ili9341_clearscreen
+	li a0, 1000
+	call delayms
+
+	li a0, 0xFFFFFF
+	call rgb_888_565
+	la t1, fg_color
+	sh a0, 0(t1)
+	li a0, 20
+	li a1, 20+11
+	li a2, 20
+	li a3, 20+16
+	call ili9341_fillrect
 	li a0, 1000
 	call delayms
 

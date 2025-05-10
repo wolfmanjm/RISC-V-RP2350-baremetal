@@ -13,4 +13,5 @@ SECTIONS
 {
    .text : { *(.text*) } > ram1
    .data : { *(.data*)} > ram2
+   .rodata : { *(.rodata*)} > ram1
 }
