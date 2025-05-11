@@ -148,7 +148,7 @@ unhandled_ext_irq:
 .section .data
 
 .p2align 6
-.global __vectors, __VECTOR_TABLE
+.globl __vectors, __VECTOR_TABLE
 __VECTOR_TABLE:
 __vectors:
 # Hardware vector table for standard RISC-V interrupts, indicated by `mtvec`.
@@ -168,8 +168,6 @@ j isr_riscv_machine_timer
 .word 0
 j isr_riscv_machine_external_irq
 .option pop
-
-.equ TIMER0_IRQ_0, 0x00
 
 .p2align 4
 .globl __soft_vector_table
@@ -229,7 +227,7 @@ __soft_vector_table:
 
 .section .text
 # -----------------------------------------------------------------------------
-.p2align 8 # This special signature must appear within the first 4 kb of
+.p2align 2 # This special signature must appear within the first 4 kb of
 image_def: # the memory image to be recognised as a valid RISC-V binary.
 # -----------------------------------------------------------------------------
 

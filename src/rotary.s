@@ -24,7 +24,7 @@
 .include "interrupt_vectors.s"
 
 .section .data
-.p2align 4
+.p2align 2
 rotary_count: .word 0
 rotary_state: .byte 0
 enc_pins: .byte 0, 0
@@ -169,7 +169,7 @@ test_rotary:
 	ret
 
 .section .data
-.p2align 4
+.p2align 2
 lstcnt: .word 0
 numstr: .dcb.b 32
 msg: .asciz "Rotary Encoder test on pins 14, 15\n"

@@ -110,7 +110,7 @@ INIT_CMD:
  .byte  0,  0  										 # terminate list
 
 .section .data
-.p2align 4
+.p2align 2
 spi_data: .dcb.b 4
 fg_color: .word 0
 bg_color: .word 0
@@ -274,7 +274,7 @@ rgb_888_565:
 	srli t0, t0, 8
 	li t1, 0x00FC00
     and t1, a0, t1
-    srli t1, t1, 4
+    srli t1, t1, 5
     or t0, t0, t1
     andi t1, a0, 0x0000FF
     srli t1, t1, 3
@@ -376,11 +376,75 @@ ili9341_fillrect:
     popra
     ret
 
-#.include "font16.s"
+# a0: xs, a1: xe, a2: ys, a3: ye, a4: buf
+.globl ili9341_blit
+ili9341_blit:
+	pushra
+	call ili9341_set_window_location
+
+	sub t0, a1, a0	# xsize
+	addi t0, t0, 1
+	sub t1, a3, a2	# ysize
+	addi t1, t1, 1
+	mul t6, t0, t1	# n writes
+	slli t6, t6, 1 	# * 2
+
+    li a0, WRITE_RAM
+    call write_cmd
+	mv a0, a4
+	mv a1, t6
+    call write_data
+    popra
+    ret
+
+.section .rodata
+.p2align 2
+.include "font16.s"
+
+.section .text
+
+# fetch the base address of the character in a0
+# and render it into the memory at a1
+render_char:
+	la t0, font16
+	li t1, FONT16_STRIDE
+	li t2, FONT16_HEIGHT
+	mul t1, t1, t2
+	addi t2, a0, -32 	# starts at ' '
+	mul t1, t2, t1
+	add t0, t0, t1 		# address of the character
+    la t1, fg_color
+    lh t4, 0(t1)		# get foreground color
+   	rev8 t4, t4
+	srli t4, t4, 16 	# swap nibbles
+    la t1, bg_color
+    lh t5, 0(t1)		# get background color
+   	rev8 t5, t5
+	srli t5, t5, 16 	# swap nibbles
+    li t6, FONT16_HEIGHT
+4:  li t3, FONT16_WIDTH
+	# convert the bits into 16bits 565 RGB
+	lh t1, 0(t0)		# load 16 bits b1b0
+	rev8 t1, t1 		# b0b10000 make it left aligned with first bit MSBit
+1:	bexti t2, t1, 31 	# test MSBit
+	beqz t2, 2f
+	sh t4, 0(a1)		# fgcolor
+	j 3f
+2:	sh t5, 0(a1)		# bgcolor
+3:	slli t1, t1, 1 		# next bit
+	addi a1, a1, 2 		# next dest address
+	addi t3, t3, -1 	# count width down
+	bnez t3, 1b
+	addi t0, t0, FONT16_STRIDE
+	addi t6, t6, -1
+	bnez t6, 4b
+	ret
 
 .globl test_tft
 test_tft:
 	call ili9341_init
+
+	j test_tft_char
 
 1:	li a0, 0
 	call ili9341_clearscreen
@@ -410,12 +474,51 @@ test_tft:
 	la t1, fg_color
 	sh a0, 0(t1)
 	li a0, 20
-	li a1, 20+11
+	li a1, 20+11-1
 	li a2, 20
-	li a3, 20+16
+	li a3, 20+16-1
 	call ili9341_fillrect
 	li a0, 1000
 	call delayms
 
 	j 1b
 	ret
+
+.globl test_tft_char
+test_tft_char:
+	# call ili9341_init
+
+	li a0, 0
+	call ili9341_clearscreen
+
+	# set color for font
+	li a0, 0xFFFFFF
+	call rgb_888_565
+	la t1, fg_color
+	sh a0, 0(t1)
+	li a0, 0x000000
+	call rgb_888_565
+	la t1, bg_color
+	sh a0, 0(t1)
+
+	li a0, 'A'
+	la a1, char_buf
+	call render_char
+
+	# draw character
+	li a0, 20
+	li a1, 20+FONT16_WIDTH-1
+	li a2, 20
+	li a3, 20+FONT16_HEIGHT-1
+	la a4, char_buf
+	call ili9341_blit
+
+1:	j 1b
+	ret
+
+
+.section .data
+.p2align 1
+# big enough for 11x16 font
+char_buf: .dcb.w FONT16_WIDTH*FONT16_HEIGHT
+.word 0xf0f0f0f0

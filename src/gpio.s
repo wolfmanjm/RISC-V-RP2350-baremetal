@@ -116,7 +116,7 @@ gpio_interrupt_enabled:
 	# each byte contains the GPIO number that is enabled, 0xFF if not enabled
 	.dcb.b N_GPIO_INTERRUPTS, 0xFF
 
-.p2align 4
+.p2align 2
 gpio_interrupt_callbacks:
 # has the address of the routine to call when the interrupt is triggered, the
 # same position in the table as the gpio_interrupt_enabled table
