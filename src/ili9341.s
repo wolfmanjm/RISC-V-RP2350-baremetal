@@ -281,7 +281,7 @@ rgb_888_565:
 	or a0, t0, t1 		# a0 : RGB565
 	ret
 
-# a0: xs, a1: xe, a2: ys, a3: ye
+# a0: xs, a1: xe, a2: ys, a3: ye, inclusive from xs to xe
 .globl ili9341_set_window_location
 ili9341_set_window_location:
 	addi sp, sp, -28
@@ -440,6 +440,75 @@ render_char:
 	bnez t6, 4b
 	ret
 
+.section .data
+.p2align 1
+# big enough for 11x16 font
+tft_char_buf: .dcb.w FONT16_WIDTH*FONT16_HEIGHT
+
+.section .text
+# a0 char, a1 xpos, a2 ypos
+.globl tft_putchar
+tft_putchar:
+	addi sp, sp, -8
+  	sw ra, 0(sp)
+  	sw s1, 4(sp)
+
+	mv s1, a1
+	la a1, tft_char_buf
+	call render_char
+
+	addi a1, s1, FONT16_WIDTH-1		# xe
+	addi a3, a2, FONT16_HEIGHT-1	# ye
+	mv a0, s1
+	la a4, tft_char_buf
+	call ili9341_blit
+
+  	lw ra, 0(sp)
+  	lw s1, 4(sp)
+  	addi sp, sp, 8
+	ret
+
+# a0 zstring, a1 xpos, a2 ypos
+# wraps to next line if it goes over screen width
+# returns: a0 next char pos, a1 last x, a2, last y
+.globl tft_putstr
+tft_putstr:
+	addi sp, sp, -16
+  	sw ra, 0(sp)
+  	sw s1, 4(sp)
+  	sw s2, 8(sp)
+  	sw s3, 12(sp)
+
+	mv s1, a0		# sptr
+	mv s2, a1 		# x
+	mv s3, a2 		# y
+
+1:	lb a0, 0(s1)
+	beqz a0, 2f
+	mv a1, s2
+	mv a2, s3
+	call tft_putchar
+
+	addi s1, s1, 1
+	addi s2, s2, FONT16_WIDTH
+	li t0, ILI9341_WIDTH - FONT16_WIDTH
+	blt s2, t0, 1b
+	# wrap to next line
+	mv s2, zero
+	addi s3, s3, FONT16_HEIGHT
+	j 1b
+
+2: 	mv a0, s1
+	mv a1, s2
+	mv a2, s3
+
+	lw ra, 0(sp)
+  	lw s1, 4(sp)
+  	lw s2, 8(sp)
+  	lw s3, 12(sp)
+  	addi sp, sp, 16
+	ret
+
 .globl test_tft
 test_tft:
 	call ili9341_init
@@ -474,9 +543,9 @@ test_tft:
 	la t1, fg_color
 	sh a0, 0(t1)
 	li a0, 20
-	li a1, 20+11-1
+	li a1, 20+20-1
 	li a2, 20
-	li a3, 20+16-1
+	li a3, 20+20-1
 	call ili9341_fillrect
 	li a0, 1000
 	call delayms
@@ -501,24 +570,36 @@ test_tft_char:
 	la t1, bg_color
 	sh a0, 0(t1)
 
-	li a0, 'A'
-	la a1, char_buf
-	call render_char
+	# display all characters
+	li s1, ' '	# char
+	li s2, 0 	# x
+	li s3, 20 	# y
+	li s4, 16 	# cnt/line
 
-	# draw character
-	li a0, 20
-	li a1, 20+FONT16_WIDTH-1
-	li a2, 20
-	li a3, 20+FONT16_HEIGHT-1
-	la a4, char_buf
-	call ili9341_blit
+1:	mv a0, s1
+	mv a1, s2
+	mv a2, s3
+	call tft_putchar
 
-1:	j 1b
+	addi s1, s1, 1
+	li t0, '~'
+	bgt s1, t0, 2f
+	addi s2, s2, FONT16_WIDTH
+	addi s4, s4, -1
+	bnez s4, 1b
+	li s2, 0
+	addi s3, s3, FONT16_HEIGHT
+	li s4, 16
+	j 1b
+
+2:	la a0, hello_string
+	li a1, 0
+	li a2, 0
+	call tft_putstr
+
+3:	j 3b
 	ret
 
+.section .rodata
+hello_string: .asciz "Hello World!"
 
-.section .data
-.p2align 1
-# big enough for 11x16 font
-char_buf: .dcb.w FONT16_WIDTH*FONT16_HEIGHT
-.word 0xf0f0f0f0
