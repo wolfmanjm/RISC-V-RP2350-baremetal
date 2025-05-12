@@ -484,7 +484,9 @@ tft_putstr:
 	mv s3, a2 		# y
 
 1:	lb a0, 0(s1)
-	beqz a0, 2f
+	beqz a0, 3f
+	li t0, 10 		# nl
+	beq a0, t0, 2f
 	mv a1, s2
 	mv a2, s3
 	call tft_putchar
@@ -494,11 +496,14 @@ tft_putstr:
 	li t0, ILI9341_WIDTH - FONT16_WIDTH
 	blt s2, t0, 1b
 	# wrap to next line
-	mv s2, zero
+4:	mv s2, zero
 	addi s3, s3, FONT16_HEIGHT
 	j 1b
+	# handle newline
+2:	addi s1, s1, 1
+	j 4b
 
-2: 	mv a0, s1
+3: 	mv a0, s1
 	mv a1, s2
 	mv a2, s3
 
@@ -597,9 +602,30 @@ test_tft_char:
 	li a2, 0
 	call tft_putstr
 
+	la a0, str2
+	li a1, 0
+	li a2, 10*FONT16_HEIGHT
+	call tft_putstr
+
+	li s1, 0
+4:	mv a0, s1
+	la a1, numbuf
+    call parse_n
+	la a0, numbuf
+	li a1, 0
+	li a2, 12*FONT16_HEIGHT
+	call tft_putstr
+	addi s1, s1, 1
+	li a0, 50
+	call delayms
+	j 4b
+
 3:	j 3b
 	ret
 
 .section .rodata
 hello_string: .asciz "Hello World!"
+str2: .asciz "One Line\nNext line"
 
+.section .data
+numbuf: .dcb.b 20
