@@ -11,7 +11,27 @@ MEMORY
 
 SECTIONS
 {
-   .text : { *(.text*) } > ram1
+   .text : {
+   		. = ALIGN(4);
+   		_stext = .;
+   		*(.text*)
+   		_etext = .;
+   	} > ram1
+
+	/* used by the startup to initialize data */
+	_sidata = LOADADDR(.data);
+
    .data : { *(.data*)} > ram2
+
    .rodata : { *(.rodata*)} > ram1
+
+   /* uninitialized data */
+   .bss : {
+	    . = ALIGN(4);
+	    _sbss = .;        /* create a global symbol at data start */
+        *(.bss)
+        *(.bss*)
+	    . = ALIGN(4);
+	    _ebss = .;        /* define a global symbol at data end */
+    } > ram2
 }

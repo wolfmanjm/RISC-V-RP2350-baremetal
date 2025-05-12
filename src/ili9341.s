@@ -440,7 +440,7 @@ render_char:
 	bnez t6, 4b
 	ret
 
-.section .data
+.section .bss
 .p2align 1
 # big enough for 11x16 font
 tft_char_buf: .dcb.w FONT16_WIDTH*FONT16_HEIGHT
@@ -627,5 +627,5 @@ test_tft_char:
 hello_string: .asciz "Hello World!"
 str2: .asciz "One Line\nNext line"
 
-.section .data
+.section .bss
 numbuf: .dcb.b 20

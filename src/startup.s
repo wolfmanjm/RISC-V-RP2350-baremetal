@@ -2,6 +2,10 @@
 
 .globl _start
 
+# Set this to 1 to assemble an XIP flash based version
+# otherwise it all goes into RAM
+.equ INFLASH, 0
+
 .equ STACK_TOP, 0x20080000 - 0x0100
 
 .equ RVCSR_MEIEA_OFFSET, 0x00000be0
@@ -314,6 +318,31 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 .equ WRITE_CLR   , (0x3000)   # Atomic bitmask clear on write
 
 _sysinit:
+    # clear the .bss section
+    la a1, _sbss
+    la a2, _ebss
+    j bss_fill_test
+bss_fill_loop:
+    sw zero, (a1)
+    addi a1, a1, 4
+bss_fill_test:
+    bne a1, a2, bss_fill_loop
+
+.if INFLASH
+    # copy .data into RAM
+    la a1, _sidata  # where in Flash it is
+    la a2, _sdata
+    la a3, _edata
+    j 2f
+
+1:  lw a0, (a1)
+    sw a0, (a2)
+    addi a1, a1, 4
+    addi a2, a2, 4
+2:
+    bltu a2, a3, 1b
+.endif
+
 	# Start cycle counter
 	csrrwi zero, 0x320, 4  # MCOUNTINHIBIT: Keep minstret(h) stopped, but run mcycle(h).
 
