@@ -13,7 +13,8 @@ main:
 	# call test_breakout
 	# call test_spi
 	# call test_rotary
-	call test_tft
+	# call test_tft
+	call test_pwm
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)

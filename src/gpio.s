@@ -15,10 +15,20 @@
 .equ CLK_EN_REG,     SYSCTL_BASE + 0x100   # Clock enable register
 
 .equ PADS_BANK0_BASE, 0x40038000   # Pad isolation control register (pin# * 4) + 4
+  .equ _GPIO, 0x00000004
+    .equ b_GPIO_SLEWFAST, 1<<0
+    .equ b_GPIO_SCHMITT, 1<<1
+    .equ b_GPIO_PDE, 1<<2
+    .equ b_GPIO_PUE, 1<<3
+    .equ m_GPIO_DRIVE, 0x00000030
+    .equ o_GPIO_DRIVE, 4
+    .equ b_GPIO_IE, 1<<6
+    .equ b_GPIO_OD, 1<<7
+    .equ b_GPIO_ISO, 1<<8
 
 .equ IO_BANK0_BASE, 0x40028000   # pin# * 8
-.equ _GPIO_STATUS, 0x000
-.equ _GPIO_CTRL, 0x004
+  .equ _GPIO_STATUS, 0x000
+  .equ _GPIO_CTRL, 0x004
 
 .equ SIO_BASE,       0xD0000000
 .equ _GPIO_IN,  	 0x04       # GPIO input register
@@ -34,6 +44,69 @@
 .equ WRITE_XOR   , (0x1000)   # Atomic XOR on write
 .equ WRITE_SET   , (0x2000)   # Atomic bitmask set on write
 .equ WRITE_CLR   , (0x3000)   # Atomic bitmask clear on write
+
+# generic set function for any GPIO pin
+# a0 pin, a1 function
+.globl gpio_set_function
+gpio_set_function:
+	# this is exactly the same as the SDK gpio_set_function()
+	li t0, PADS_BANK0_BASE
+    sh2add t0, a0, t0
+	lw t1, _GPIO(t0)
+	xori t1, t1, b_GPIO_IE
+	andi t1, t1, b_GPIO_IE|b_GPIO_OD
+	li t2, WRITE_XOR
+	or t0, t0, t2
+	sw t1, _GPIO(t0)		# Set input enable on, output disable off
+
+    # Zero all fields apart from fsel; we want this IO to do what the peripheral tells it.
+	li t0, IO_BANK0_BASE
+	sh3add t0, a0, t0 		# get the offet for the pin (pin# * 8)
+	sw a1, _GPIO_CTRL(t0) 	# set to requested function
+
+    # Clear Pad Isolation
+    li t0, PADS_BANK0_BASE|WRITE_CLR
+    sh2add t0, a0, t0
+    li t1, b_GPIO_ISO
+    sw t1, _GPIO(t0)
+
+	ret
+
+# set fast (a1=1) or slow (a1=0) slew for pin (a0)
+.globl gpio_set_slew
+gpio_set_slew:
+    beqz a1, 1f
+    li t0, PADS_BANK0_BASE|WRITE_SET
+    j 2f
+1:	li t0, PADS_BANK0_BASE|WRITE_CLR
+2:  sh2add t0, a0, t0
+    li t1, b_GPIO_SLEWFAST
+    sw t1, _GPIO(t0)
+    ret
+
+# set schmitt (a1=0/1) for pin (a0)
+.globl gpio_set_schmitt
+gpio_set_schmitt:
+    beqz a1, 1f
+    li t0, PADS_BANK0_BASE|WRITE_SET
+    j 2f
+1:	li t0, PADS_BANK0_BASE|WRITE_CLR
+2:  sh2add t0, a0, t0
+    li t1, b_GPIO_SCHMITT
+    sw t1, _GPIO(t0)
+    ret
+
+# set drive strength (a1=0-3) for pin (a0)
+.globl gpio_set_drive
+gpio_set_drive:
+	li t0, PADS_BANK0_BASE
+	lw t1, _GPIO(t0)
+	li t2, ~(m_GPIO_DRIVE)
+	and t1, t1, t2
+	slli t2, a1, o_GPIO_DRIVE
+	or t1, t1, t2
+	sw t1, _GPIO(t0)
+	ret
 
 # set pin specified in a0 as output
 .globl pin_output

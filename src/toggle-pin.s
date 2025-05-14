@@ -44,6 +44,8 @@ toggle_pin:
 	li t0, SIO_BASE
 	li t2, GPIO15_MASK
 
+	# j floop
+
 # inner loop is 3 cycles as branch is predicted so total is 3000 cycles
 # with 12MHz clock total is 250.33us or 83.4ns/cycle
 # with sys clk set to 150mHz we get 20us or 6.6ns/cycle
@@ -64,3 +66,8 @@ loop:
 	bnez t1, 1b
 
     j loop
+
+floop:
+	sw t2, _GPIO_OUT_SET(t0)        # HIGH GPIO15
+	sw t2, _GPIO_OUT_CLR(t0)        # LOW GPIO15
+    j floop

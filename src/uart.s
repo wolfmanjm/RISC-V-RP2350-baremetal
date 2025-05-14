@@ -47,6 +47,8 @@
 .equ UART_FIFO, 1 << 4
 .equ UART_ENABLE, 1<<9|1<<8|1<<0
 
+.equ GPIO_FUNC_UART, 2
+
 # sets GPIO0 and GPIO1 for TX/RX Fnc2 on UART0
 .globl uart_init
 uart_init:
@@ -60,11 +62,11 @@ uart_init:
 
 	# enable pins
 	li t0, GPIO_0_CTRL   # TX
-	li t1, 2
+	li t1, GPIO_FUNC_UART
 	sw t1, 0(t0)
 
 	li t0, GPIO_1_CTRL   # RX
-	li t1, 2
+	li t1, GPIO_FUNC_UART
 	sw t1, 0(t0)
 
 	# Remove pad isolation control bits for the UART pins, and enable input on the RX wire
