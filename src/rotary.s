@@ -108,36 +108,47 @@ handle_enc_irq:
 # a0 has enca pin, a1 has encb pin
 .globl rotary_init
 rotary_init:
-	pushra
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw s1, 4(sp)
+	sw s2, 8(sp)
+
+	mv s1, a0
+	mv s2, a1
+
 	la t0, rotary_state
 	li t1, R_START
     sb t1, 0(t0)
     la t0, rotary_count
     sw zero, 0(t0)
    	la t0, enc_pins
-	sb a0, 0(t0)
-	sb a1, 1(t0)
+	sb s1, 0(t0)
+	sb s2, 1(t0)
 
+	mv a0, s1
 	call pin_input_pu
-	mv a0, a1
+	mv a0, s2
 	call pin_input_pu
 
 	call gpio_disable_common_irq
 
-   	la t0, enc_pins
-	lb a0, 0(t0)
+	mv a0, s1
 	la a1, handle_enc_irq
 	li a2, b_INTR_EDGE_HIGH|b_INTR_EDGE_LOW
 	call gpio_enable_interrupt
-   	la t0, enc_pins
-	lb a0, 1(t0)
+
+   	mv a0, s2
 	la a1, handle_enc_irq
 	li a2, b_INTR_EDGE_HIGH|b_INTR_EDGE_LOW
 	call gpio_enable_interrupt
 
 	call gpio_enable_common_irq
 
-    popra
+  	lw ra, 0(sp)
+  	lw s1, 4(sp)
+ 	lw s2, 8(sp)
+  	addi sp, sp, 12
+
     ret
 
 .globl rotary_get_count
@@ -149,8 +160,8 @@ rotary_get_count:
 .globl test_rotary
 test_rotary:
 	pushra
-	li a0, 14
-	li a1, 15
+	li a0, 15
+	li a1, 14
 	call rotary_init
 
 	call uart_init       # Initialize UART

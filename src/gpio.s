@@ -40,6 +40,8 @@
 .equ _GPIO_OE_SET, 0x38         # GPIO set direction register
 .equ _GPIO_OE_CLR, 0x40         # GPIO clear direction register
 
+.equ GPIO_FUNC_SIO, 5
+
 .equ WRITE_NORMAL, (0x0000)   # Normal read write access
 .equ WRITE_XOR   , (0x1000)   # Atomic XOR on write
 .equ WRITE_SET   , (0x2000)   # Atomic bitmask set on write
@@ -113,11 +115,18 @@ gpio_set_drive:
 pin_output:
 	pushra
 	mv t6, a0
+
+    # gpio_init()
+    li t0, SIO_BASE
+    bset t1, zero, t6
+    sw t1, _GPIO_OE_CLR(t0)         # Set GPIO as input
+	sw t1, _GPIO_OUT_CLR(t0) 		# set LOW
+
     # Configure FUNC
-	li a1, 5
+    mv a0, t6
+	li a1, GPIO_FUNC_SIO
 	call gpio_set_function
 
-    # Set as an output
     li t0, SIO_BASE
     bset t1, zero, t6
     sw t1, _GPIO_OE_SET(t0)         # Set GPIO as output
@@ -133,24 +142,32 @@ pin_output:
 pin_input_pu:
 	pushra
 	mv t6, a0
-    # Configure FUNC
-    li a1, 5
-    call gpio_set_function
 
-    # Set as an input
+    # gpio_init()
     li t0, SIO_BASE
     bset t1, zero, t6
-    sw t1, _GPIO_OE_CLR(t0)   # Set GPIO as input
+    sw t1, _GPIO_OE_CLR(t0)	  	# Set GPIO as input
+	sw t1, _GPIO_OUT_CLR(t0) 	# set LOW
+    # Configure FUNC
+    mv a0, t6
+    li a1, GPIO_FUNC_SIO
+    call gpio_set_function
 
-    # set pullup, clear pulldown
-	li t0, PADS_BANK0_BASE|WRITE_SET
-  	sh2add t0, t6, t0
-    li t1, b_GPIO_PUE
-    sw t1, _GPIO(t0)
+	li t0, SIO_BASE
+    bset t1, zero, t6
+	sw t1, _GPIO_OE_CLR(t0) 	# set as input again
+
+    # clear pulldown
 	li t0, PADS_BANK0_BASE|WRITE_CLR
   	sh2add t0, t6, t0
     li t1, b_GPIO_PDE
     sw t1, _GPIO(t0)
+    # set pullup
+	li t0, PADS_BANK0_BASE|WRITE_SET
+  	sh2add t0, t6, t0
+    li t1, b_GPIO_PUE
+    sw t1, _GPIO(t0)
+
     popra
     ret
 
@@ -166,7 +183,7 @@ pin_high:
 pin_low:
 	bset t1, zero, a0
     li t0, SIO_BASE
-	sw t1, _GPIO_OUT_CLR(t0) # set HIGH
+	sw t1, _GPIO_OUT_CLR(t0) # set LOW
 	ret
 
 .globl pin_toggle
