@@ -22,7 +22,7 @@ src/startup.s does the initial setup and sets the clocks to run at 150mHz,
 then after the setup calls main in main.s. which currently calls the test
 routine that is being worked on.
 
-Currently we have gpio, multicore, timers, ticks, uart, spi1, ili9341 and some
+Currently we have gpio, multicore, timers, ticks, uart, spi1, pwm, ili9341 and some
 blink examples. gpio interrupts with a test that uses a rotary encoder is
 also included.
 

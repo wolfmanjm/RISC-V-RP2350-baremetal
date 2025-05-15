@@ -111,43 +111,47 @@ gpio_set_drive:
 # set pin specified in a0 as output
 .globl pin_output
 pin_output:
+	pushra
+	mv t6, a0
     # Configure FUNC
-    li t0, IO_BANK0_BASE
-    sh3add t0, a0, t0
-    li t1, 5        		# Function 5 selects SIO mode
-    sw t1, _GPIO_CTRL(t0)   # Set IOMUX
+	li a1, 5
+	call gpio_set_function
 
     # Set as an output
     li t0, SIO_BASE
-    bset t1, zero, a0
+    bset t1, zero, t6
     sw t1, _GPIO_OE_SET(t0)         # Set GPIO as output
 
-    # Clear Pad Isolation for GPIO
-    li t0, PADS_BANK0_BASE
-    sh2add t0, a0, t0
-    li t1, 0x0030	# drive stength 12MA, clear ISO bit
-    sw t1, 4(t0)
+    mv a0, t6
+    li a1, 3	# drive stength 12MA
+    call gpio_set_drive
+    popra
     ret
 
 # set pin specified in a0 as input with pu
 .globl pin_input_pu
 pin_input_pu:
+	pushra
+	mv t6, a0
     # Configure FUNC
-    li t0, IO_BANK0_BASE
-    sh3add t0, a0, t0
-    li t1, 5        		# Function 5 selects SIO mode
-    sw t1, _GPIO_CTRL(t0)   # Set IOMUX
+    li a1, 5
+    call gpio_set_function
 
-    # Set as an inout
+    # Set as an input
     li t0, SIO_BASE
-    bset t1, zero, a0
+    bset t1, zero, t6
     sw t1, _GPIO_OE_CLR(t0)   # Set GPIO as input
 
-    # Clear Pad Isolation for GPIO
-    li t0, PADS_BANK0_BASE
-    sh2add t0, a0, t0
-    li t1, 0x0048	# input enable, pullup, clear ISO bit
-    sw t1, 4(t0)
+    # set pullup, clear pulldown
+	li t0, PADS_BANK0_BASE|WRITE_SET
+  	sh2add t0, t6, t0
+    li t1, b_GPIO_PUE
+    sw t1, _GPIO(t0)
+	li t0, PADS_BANK0_BASE|WRITE_CLR
+  	sh2add t0, t6, t0
+    li t1, b_GPIO_PDE
+    sw t1, _GPIO(t0)
+    popra
     ret
 
 # these take the pin# in a0
@@ -260,6 +264,10 @@ gpio_default_irq_handler:
 	bne t1, t2, 1b
 
  	# not found, this is a problem as we can't clear the interrupt
+ 	# load the pending interrupts for debug
+ 	li t0, IO_BANK0_BASE
+ 	lw t1, 0x200(t0)
+ 	lw t2, 0x208(t0)
 	ebreak
 4:	j 4b
 
@@ -313,8 +321,10 @@ gpio_enable_interrupt:
 	la t0, gpio_interrupt_callbacks
 	sh2add t0, t1, t0
 	sw a1, 0(t0)
+
 	# enable the interrupt in H/W
 	pushra
+	mv t6, a0 			# save pin
 	# first ack any outstanding IRQ for the given events
 	mv a1, a2 			# events
 	call gpio_ack_irq
@@ -324,23 +334,13 @@ gpio_enable_interrupt:
 	li t0, (IO_BANK0_BASE+_PROC0_INTE0)|WRITE_SET
 	j 4f
 3:	li t0, (IO_BANK0_BASE+_PROC1_INTE0)|WRITE_SET
-4:	mv t1, a0
+4:	mv t1, t6
 	srli t2, t1, 3 			# gpio/8
 	sh2add t2, t2, t0		# register offset for this gpio
 	andi t1, t1, 0b0111		# gpio mod 8
 	slli t1, t1, 2 			# (gpio mod 8) * 4
 	sll t1, a2, t1 			# shift event into correct position
 	sw t1, 0(t2) 			# set event bits
-
-	# enable shared IRQ
-	# set the shared IRQ handler for all GPIO IRQs
-	li a0, IO_IRQ_BANK0
-	la a1, gpio_default_irq_handler
-	call set_irq_vector
-
-	li a0, IO_IRQ_BANK0
-	li a1, 1
-	call enable_irq
 
 	li a0, 1
 	popra
@@ -381,6 +381,29 @@ gpio_disable_interrupt:
 	sw t3, 0(t2) 			# clear event bits
 	ret
 
+.globl gpio_enable_common_irq
+gpio_enable_common_irq:
+	pushra
+	# set the shared IRQ handler for all GPIO IRQs
+	li a0, IO_IRQ_BANK0
+	la a1, gpio_default_irq_handler
+	call set_irq_vector
+
+	li a0, IO_IRQ_BANK0
+	li a1, 1
+	call enable_irq
+	popra
+	ret
+
+.globl gpio_disable_common_irq
+gpio_disable_common_irq:
+	pushra
+	li a0, IO_IRQ_BANK0
+	li a1, 0
+	call enable_irq
+	popra
+	ret
+
 .section .text
 
 # Test routines
@@ -388,6 +411,7 @@ gpio_disable_interrupt:
 test_gpio:
 	li a0, 25
 	call pin_output
+
 	li a0, 15
 	call pin_input_pu
 
@@ -455,25 +479,27 @@ test_gpio_irq:
 	li a0, 15
 	call pin_input_pu
 
+	# disable the commoninterrupt until all have been setup
+	call gpio_disable_common_irq
 	li a0, 15
 	la a1, test_gpio_int_handler
 	li a2, b_INTR_EDGE_HIGH
 	call gpio_enable_interrupt
 	# check a0 is 1
+	bnez a0, 3f
+	ebreak
 
+3:	call gpio_enable_common_irq
 	# toggles pin 25 depending on count LSB
 1:	wfi
+	li a0, 25
  	la t1, irq_count
   	lw t0, 0(t1)
  	andi t0, t0, 1
   	beqz t0, 2f
-
-	li a0, 25
 	call pin_high
 	j 1b
-
-2:	li a0, 25
-	call pin_low
+2:	call pin_low
 	j 1b
 
 	ret

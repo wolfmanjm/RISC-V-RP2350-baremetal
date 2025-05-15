@@ -28,6 +28,9 @@
 rotary_count: .word 0
 rotary_state: .byte 0
 enc_pins: .byte 0, 0
+
+.section .rodata
+.p2align 2
 rotary_ttable: # [7][4]
     # R_START
     .byte R_START,    R_CW_BEGIN,  R_CCW_BEGIN, R_START
@@ -119,6 +122,8 @@ rotary_init:
 	mv a0, a1
 	call pin_input_pu
 
+	call gpio_disable_common_irq
+
    	la t0, enc_pins
 	lb a0, 0(t0)
 	la a1, handle_enc_irq
@@ -130,11 +135,13 @@ rotary_init:
 	li a2, b_INTR_EDGE_HIGH|b_INTR_EDGE_LOW
 	call gpio_enable_interrupt
 
+	call gpio_enable_common_irq
+
     popra
     ret
 
-.globl get_rotary_count
-get_rotary_count:
+.globl rotary_get_count
+rotary_get_count:
 	la t0, rotary_count
 	lw a0, 0(t0)
 	ret

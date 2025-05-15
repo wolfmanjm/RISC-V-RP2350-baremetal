@@ -112,7 +112,7 @@ INIT_CMD:
 .section .data
 .p2align 2
 spi_data: .dcb.b 4
-fg_color: .word 0
+fg_color: .word 0xFFFF
 bg_color: .word 0
 
 .section .text
@@ -354,7 +354,7 @@ ili9341_clearscreen:
     popra
   	ret
 
-# a0: xs, a1: xe, a2: ys, a3: ye
+# a0: xs, a1: xe, a2: ys, a3: ye a4: color
 .globl ili9341_fillrect
 ili9341_fillrect:
 	pushra
@@ -369,8 +369,7 @@ ili9341_fillrect:
 	# write color data
     li a0, WRITE_RAM
     call write_cmd
-    la a0, fg_color
-    lh a0, 0(a0)
+    mv a0, a4
     mv a1, t6
     call write_data16n
     popra
@@ -514,6 +513,37 @@ tft_putstr:
   	addi sp, sp, 16
 	ret
 
+# display the number in a0 at char pos x in a1 and line in a2
+.globl tft_printn
+tft_printn:
+	pushra
+	mv t6, a1
+	la a1, numbuf
+    call parse_n
+	la a0, numbuf
+	li t0, FONT16_WIDTH
+	mul a1, t6, t0
+	li t0, FONT16_HEIGHT
+	mul a2, a2, t0
+	call tft_putstr
+	popra
+	ret
+
+# clear the line specified in a0 to 0
+.globl tft_clear_line
+tft_clear_line:
+	pushra
+	mv t0, a0
+	li a0, 0
+	li a1, ILI9341_WIDTH-1
+	li t1, FONT16_HEIGHT
+	mul a2, t0, t1
+	addi a3, a2, FONT16_HEIGHT-1
+	li a4, 0 						# color to fill with
+	call ili9341_fillrect
+	popra
+	ret
+
 .globl test_tft
 test_tft:
 	call ili9341_init
@@ -545,8 +575,8 @@ test_tft:
 
 	li a0, 0xFFFFFF
 	call rgb_888_565
-	la t1, fg_color
-	sh a0, 0(t1)
+	mv a4, a0
+
 	li a0, 20
 	li a1, 20+20-1
 	li a2, 20
@@ -609,14 +639,15 @@ test_tft_char:
 
 	li s1, 0
 4:	mv a0, s1
-	la a1, numbuf
-    call parse_n
-	la a0, numbuf
 	li a1, 0
-	li a2, 12*FONT16_HEIGHT
-	call tft_putstr
+	li a2, 12
+	call tft_printn
 	addi s1, s1, 1
-	li a0, 50
+	li t0, 100
+	bne t0, s1, 5f
+	li a0, 11
+	call tft_clear_line
+5:	li a0, 50
 	call delayms
 	j 4b
 

@@ -148,7 +148,7 @@ parse_un:
 	ret
 
 .globl parse_n
-parse_n:
+ parse_n:
 	bltz a0, 1f
 	j parse_un
 	# handle negative case
