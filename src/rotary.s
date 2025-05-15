@@ -113,6 +113,7 @@ rotary_init:
   	sw s1, 4(sp)
 	sw s2, 8(sp)
 
+	# save the pins
 	mv s1, a0
 	mv s2, a1
 

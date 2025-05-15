@@ -469,7 +469,7 @@ tft_putchar:
 
 # a0 zstring, a1 xpos, a2 ypos
 # wraps to next line if it goes over screen width
-# returns: a0 next char pos, a1 last x, a2, last y
+# returns: a0 next char pos, a1 last x, a2 last y
 .globl tft_putstr
 tft_putstr:
 	addi sp, sp, -16
@@ -527,6 +527,29 @@ tft_printn:
 	mul a2, a2, t0
 	call tft_putstr
 	popra
+	ret
+
+# print the zstring in a0 at char pos x in a1 and line in a2
+# returns line in a2 and next x character pos in a1
+.globl tft_printstr
+tft_printstr:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+	li t0, FONT16_WIDTH
+	mul a1, a1, t0
+	li t0, FONT16_HEIGHT
+	mul a2, a2, t0
+
+	call tft_putstr
+
+	li t0, FONT16_WIDTH
+	div a1, a1, t0
+	li t0, FONT16_HEIGHT
+	div a2, a2, t0
+
+ 	lw ra, 0(sp)
+  	addi sp, sp, 4
 	ret
 
 # clear the line specified in a0 to 0
@@ -630,12 +653,17 @@ test_tft_char:
 2:	la a0, hello_string
 	li a1, 0
 	li a2, 0
-	call tft_putstr
+	call tft_printstr
 
 	la a0, str2
 	li a1, 0
-	li a2, 10*FONT16_HEIGHT
-	call tft_putstr
+	li a2, 10
+	call tft_printstr
+
+	la a0, hello_string
+	call tft_printstr
+	li a0, 2000
+	call delayms
 
 	li s1, 0
 4:	mv a0, s1
