@@ -29,7 +29,7 @@ bss_fill_loop:
     sw zero, (a1)
     addi a1, a1, 4
 bss_fill_test:
-    bne a1, a2, bss_fill_loop
+    bltu a1, a2, bss_fill_loop
 
     # copy .data into RAM, only happens if _sidata is different to _sdata
 copy_data_section:
@@ -44,7 +44,7 @@ copy_data_section:
     addi a2, a2, 4
 2:  bltu a2, a3, 1b
 
-3:
+3: 	# jumps here if everything is in RAM
 
     # some init taken from crt0
     # clear all IRQ force array bits. Iterate over array registers 0
