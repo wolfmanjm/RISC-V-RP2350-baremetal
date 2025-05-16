@@ -21,8 +21,10 @@ SECTIONS {
 
 	/* Initialized data sections goes into RAM */
     .data : {
-	    . = ALIGN(4);
 	    _sdata = .;        /* create a global symbol at data start */
+	    *(.time_critical*)
+
+	    . = ALIGN(4);
 	    *(.data)           /* .data sections */
 	    *(.data*)          /* .data* sections */
 

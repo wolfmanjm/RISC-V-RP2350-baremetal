@@ -10,7 +10,10 @@ ASSEMBLER = "#{TOOLSDIR}/riscv32-corev-elf-as"
 LINKER = "#{TOOLSDIR}/riscv32-corev-elf-ld"
 OBJDUMP = "#{TOOLSDIR}/riscv32-corev-elf-objdump"
 ASFLAGS = '-g -march=rv32ima_zicsr_zifencei_zba_zbb_zbs_zbkb_zca_zcb_zcmp -mabi=ilp32'
+
+# comment the following line and uncomment the next line to compile for FLASH
 LDFLAGS = '-g -m elf32lriscv -T linker-ram.ld'
+#LDFLAGS = '-g -m elf32lriscv -T linker-flash.ld'
 
 # Collect all .s files in SRC_DIR
 assembly_files = FileList["#{SRC_DIR}/*.s"]

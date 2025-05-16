@@ -1,11 +1,3 @@
-.section .text
-
-.globl _start
-
-# Set this to 1 to assemble an XIP flash based version
-# otherwise it all goes into RAM
-.equ INFLASH, 0
-
 .equ STACK_TOP, 0x20080000 - 0x0100
 
 .equ RVCSR_MEIEA_OFFSET, 0x00000be0
@@ -13,6 +5,8 @@
 .equ RVCSR_MIE_MEIE_BITS,  0x00000800
 .equ RVCSR_MSTATUS_MIE_BITS,  0x00000008
 
+.globl _start
+.section .text
 _start:
 .option push
 .option norelax
@@ -21,6 +15,36 @@ _start:
     la sp, STACK_TOP
     la a0, __vectors + 1
     csrw mtvec, a0
+
+    # Only core 0 should run at this time; core 1 is normally
+    # sleeping in the bootrom at this point but check to be sure
+    csrr a0, mhartid
+    bnez a0, reenter_bootrom
+
+    # clear the .bss section
+    la a1, _sbss
+    la a2, _ebss
+    j bss_fill_test
+bss_fill_loop:
+    sw zero, (a1)
+    addi a1, a1, 4
+bss_fill_test:
+    bne a1, a2, bss_fill_loop
+
+    # copy .data into RAM, only happens if _sidata is different to _sdata
+copy_data_section:
+    la a1, _sidata  # where in Flash it is
+    la a2, _sdata 	# where it needs to be copied to
+    la a3, _edata 	# upto here
+    beq a1, a2, 3f	# if equal no need to copy anything
+    j 2f
+1:  lw a0, (a1)
+    sw a0, (a2)
+    addi a1, a1, 4
+    addi a2, a2, 4
+2:  bltu a2, a3, 1b
+
+3:
 
     # some init taken from crt0
     # clear all IRQ force array bits. Iterate over array registers 0
@@ -42,11 +66,6 @@ _start:
     # exceptions in isr_riscv_machine_exception:
     csrw mscratch, zero
 
-    # Only core 0 should run at this time; core 1 is normally
-    # sleeping in the bootrom at this point but check to be sure
-    csrr a0, mhartid
-    bnez a0, reenter_bootrom
-
 	j _sysinit      # Call sysinit
 
 .equ BOOTROM_ENTRY_OFFSET, 0x7dfc
@@ -60,6 +79,10 @@ reenter_bootrom:
 1:  li a0, BOOTROM_ENTRY_OFFSET
     jr a0
 
+# goes in .data section
+.section .time_critical
+.p2align 2
+
 # default handlers so we can see what the exception was
 isr_riscv_machine_exception:
 	csrr ra, mepc
@@ -72,6 +95,7 @@ isr_riscv_machine_soft_irq:
 
 isr_riscv_machine_timer:
 1: j 1b
+
 
 .equ RVCSR_MEINEXT_OFFSET, 0x00000be4
 .equ RVCSR_MEINEXT_BITS,   0x800007fd
@@ -107,6 +131,7 @@ no_more_irqs:
 	addi sp, sp, 12
 	mret
 
+.section .text
 
 .globl enable_irq
 # enable/disable (a1=1|0) the irq specified in a0
@@ -150,7 +175,6 @@ unhandled_ext_irq:
 1: j 1b
 
 .section .data
-
 .p2align 6
 .globl __vectors, __VECTOR_TABLE
 __VECTOR_TABLE:
@@ -318,31 +342,6 @@ image_def: # the memory image to be recognised as a valid RISC-V binary.
 .equ WRITE_CLR   , (0x3000)   # Atomic bitmask clear on write
 
 _sysinit:
-    # clear the .bss section
-    la a1, _sbss
-    la a2, _ebss
-    j bss_fill_test
-bss_fill_loop:
-    sw zero, (a1)
-    addi a1, a1, 4
-bss_fill_test:
-    bne a1, a2, bss_fill_loop
-
-.if INFLASH
-    # copy .data into RAM
-    la a1, _sidata  # where in Flash it is
-    la a2, _sdata
-    la a3, _edata
-    j 2f
-
-1:  lw a0, (a1)
-    sw a0, (a2)
-    addi a1, a1, 4
-    addi a2, a2, 4
-2:
-    bltu a2, a3, 1b
-.endif
-
 	# Start cycle counter
 	csrrwi zero, 0x320, 4  # MCOUNTINHIBIT: Keep minstret(h) stopped, but run mcycle(h).
 

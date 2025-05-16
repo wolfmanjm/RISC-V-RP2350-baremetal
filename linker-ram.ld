@@ -12,6 +12,8 @@ MEMORY
 SECTIONS
 {
    .text : {
+   	    *(.time_critical*)
+
    		. = ALIGN(4);
    		_stext = .;
    		*(.text*)
@@ -21,7 +23,12 @@ SECTIONS
 	/* used by the startup to initialize data */
 	_sidata = LOADADDR(.data);
 
-   .data : { *(.data*)} > ram2
+   .data : {
+	    _sdata = .;        /* create a global symbol at data start */
+   		*(.data)
+   		*(.data*)
+   		_edata = .;
+   	} > ram2
 
    .rodata : { *(.rodata*)} > ram1
 
