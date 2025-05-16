@@ -10,9 +10,10 @@ The code is in the src directory one header is in the top level directory
 The build is done using Rake and by looking at the Rakefile you can see how to
 build the stuff, if Rake is not your thing.
 
-As of now the code links into RAM for ease of development using the gdb load
-command, I will add a linker script to allow loading from flash in the
-future.
+By default the code links into RAM for ease of development using the gdb load
+command, by Editing the LDFLAGS line in the Rakefile you can compile for
+FLASH, and FLASH it using the gdb load command. (I will add uf2 creation at
+some point).
 
 I use the assembler in corev-openhw-gcc-ubuntu2204-20240530, but pretty much
 any recent risc-v assembler will work, presuming it supports the Hazard-3
