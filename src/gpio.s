@@ -98,6 +98,21 @@ gpio_set_schmitt:
     sw t1, _GPIO(t0)
     ret
 
+# set pullup for pin (a0)
+.globl gpio_set_pullup
+gpio_set_pullup:
+    # clear pulldown
+	li t0, PADS_BANK0_BASE|WRITE_CLR
+  	sh2add t0, a0, t0
+    li t1, b_GPIO_PDE
+    sw t1, _GPIO(t0)
+    # set pullup
+	li t0, PADS_BANK0_BASE|WRITE_SET
+  	sh2add t0, a0, t0
+    li t1, b_GPIO_PUE
+    sw t1, _GPIO(t0)
+    ret
+
 # set drive strength (a1=0-3) for pin (a0)
 .globl gpio_set_drive
 gpio_set_drive:

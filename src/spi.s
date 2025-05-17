@@ -122,28 +122,6 @@ spi_set_pins:
   	addi sp, sp, 12
   	ret
 
-	# li t1, IO_BANK0_BASE
-	# li t4, GPIO_FUNC_SPI
-	# sh3add t2, a0, t1 		# get the offet for the pin (pin# * 8)
-	# sw t4, _GPIO_CTRL(t2) 	# set to SPI function
-	# sh3add t2, a1, t1 		# get the offet for the pin (pin# * 8)
-	# sw t4, _GPIO_CTRL(t2) 	# set to SPI function
-	# sh3add t2, a2, t1 		# get the offet for the pin (pin# * 8)
-	# sw t4, _GPIO_CTRL(t2) 	# set to SPI function
-
-    # # Remove pad isolation control bits
-	# li t1, PADS_BANK0_BASE
-	# sh2add t2, a0, t1 		# get the offet for the pin (pin# * 4 + 4)
-	# sw zero, _GPIO0(t2)
-	# sh2add t2, a1, t1
-	# sw zero, _GPIO0(t2)
-	# sh2add t2, a2, t1
-	# sw zero, _GPIO0(t2)
-	# # set input enable on MISO
-	# li t0, b_GPIO_IE
-	# sw t0, _GPIO0(t2)
-	# ret
-
 spi1_enable:
 	li t1, SPI1_BASE
 	lw t0, _SSPCR1(t1)
