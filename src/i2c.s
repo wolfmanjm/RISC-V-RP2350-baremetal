@@ -217,10 +217,16 @@
 .equ I2C_SDA_PIN, 4
 .equ I2C_SCL_PIN, 5
 
-# for baudrate: 500000
-.equ FS_SCL_HCNT, 0x00000078
-.equ FS_SCL_LCNT, 0x000000B4
-.equ FS_SPKLEN, 0x0000000B
+# for baudrate: 400000
+# .equ FS_SCL_HCNT, 0x00000096
+# .equ FS_SCL_LCNT, 0x000000E1
+# .equ FS_SPKLEN, 0x0000000E
+# .equ SDA_HOLD_COUNT, 0x0000002E
+
+# for baudrate: 100000
+.equ FS_SCL_HCNT, 0x00000258
+.equ FS_SCL_LCNT, 0x00000384
+.equ FS_SPKLEN, 0x00000038
 .equ SDA_HOLD_COUNT, 0x0000002E
 
 .section .text
@@ -270,7 +276,7 @@ i2c_init:
 
     # Configure as a fast-mode master with RepStart support, 7-bit addresses
     li t0, I2CX_BASE
-    li t1, (IC_CON_SPEED_VALUE_FAST<<o_IC_CON_SPEED)&m_IC_CON_SPEED | b_IC_CON_MASTER_MODE | b_IC_CON_IC_SLAVE_DISABLE | b_IC_CON_IC_RESTART_EN | b_IC_CON_TX_EMPTY_CTRL
+    li t1, ((IC_CON_SPEED_VALUE_FAST<<o_IC_CON_SPEED)&m_IC_CON_SPEED) | b_IC_CON_MASTER_MODE | b_IC_CON_IC_SLAVE_DISABLE | b_IC_CON_IC_RESTART_EN | b_IC_CON_TX_EMPTY_CTRL
     sw t1, _IC_CON(t0)
 
     sw zero, _IC_RX_TL(t0)
@@ -299,32 +305,49 @@ i2c_init:
 	ret
 
 # read from i2c address in a0, to buffer in a1, with n bytes of data in a2
-# return error code in a0, where 0 is OK
 .globl i2c_read
 i2c_read:
+	li a3, 0
+	j _i2c_read
+
+.globl i2c_read_restart
+i2c_read_restart:
+	li a3, 1
+	j _i2c_read
+
+# read from i2c address in a0, to buffer in a1, with n bytes of data in a2
+# internally set a3 == 1 is restart
+# return error code in a0, where 0 is OK
+_i2c_read:
 	li t0, I2CX_BASE
 	sw zero, _IC_ENABLE(t0)
 	sw a0, _IC_TAR(t0)
 	li t1, b_IC_ENABLE_ENABLE
 	sw t1, _IC_ENABLE(t0)
-
+	li t3, 1 					# first flag
 	# check write available
 1:	lw t1, _IC_TXFLR(t0)
 	li t2, 16
 	sub t1, t2, t1
 	beqz t1, 1b
-
 	li t1, b_IC_DATA_CMD_CMD
-	sw t1, _IC_DATA_CMD(t0)
+	li t2, 1
+	bne a2, t2, 2f 				# last byte?
+	ori t1, t1, b_IC_DATA_CMD_STOP
+2:	beqz t3, 21f 				# first byte?
+	mv t3, zero
+	beqz a3, 21f 				# restart?
+	ori t1, t1, b_IC_DATA_CMD_RESTART
+21:	sw t1, _IC_DATA_CMD(t0)
 
-2:	lw t1, _IC_RAW_INTR_STAT(t0)
+3:	lw t1, _IC_RAW_INTR_STAT(t0)
 	andi t1, t1, b_IC_RAW_INTR_STAT_TX_ABRT
-	bnez t1, read_abort
+	bnez t1, 4f
 	lw t1, _IC_RXFLR(t0)
-	beqz t1, 2b
+	beqz t1, 3b
 
 	# read data
-	lb t1, _IC_DATA_CMD(t0)
+	lbu t1, _IC_DATA_CMD(t0)
 	sb t1, 0(a1)
 	addi a1, a1, 1
 	addi a2, a2, -1
@@ -333,10 +356,89 @@ i2c_read:
 	li a0, 0
 	ret
 
-
-read_abort:
-	lw t1, _IC_TX_ABRT_SOURCE(t0)
+4:	lw t1, _IC_TX_ABRT_SOURCE(t0)
 	lw t2, _IC_CLR_TX_ABRT(t0)
+	li a0, 1
+	ret
+
+# write to i2c address in a0, from buffer in a1, with n bytes of data in a2
+# return error code in a0, where 0 is OK
+.globl i2c_write
+i2c_write:
+	li t0, I2CX_BASE
+	sw zero, _IC_ENABLE(t0)
+	sw a0, _IC_TAR(t0)
+	li t1, b_IC_ENABLE_ENABLE
+	sw t1, _IC_ENABLE(t0)
+
+	# send byte, and stop bit if last one
+1:	lbu t1, 0(a1)
+	li t2, 1
+	bne a2, t2, 2f 				# last byte?
+	ori t1, t1, b_IC_DATA_CMD_STOP
+2:	sw t1, _IC_DATA_CMD(t0)
+	# wait for tx ready
+3:	lw t1, _IC_RAW_INTR_STAT(t0)
+	andi t1, t1, b_IC_RAW_INTR_STAT_TX_EMPTY
+	beqz t1, 3b
+	# check for abort
+4:	lw t1, _IC_TX_ABRT_SOURCE(t0)
+	bnez t1, 5f
+	addi a1, a1, 1
+	addi a2, a2, -1
+	# repeat if not last byte
+	bnez a2, 1b
+41:	lw t1, _IC_RAW_INTR_STAT(t0)
+	andi t1, t1, b_IC_RAW_INTR_STAT_STOP_DET
+	beqz t1, 41b
+	# Done
+	lw t1, _IC_CLR_STOP_DET(t0)
+	li a0, 0
+	ret
+
+	# we got an abort
+5:	lw t2, _IC_CLR_TX_ABRT(t0)
+6:	lw t1, _IC_RAW_INTR_STAT(t0)
+	andi t1, t1, b_IC_RAW_INTR_STAT_STOP_DET
+	beqz t1, 6b
+	lw t1, _IC_CLR_STOP_DET(t0)
+	li a0, 1
+	ret
+
+# write to i2c with nostop  address in a0, from buffer in a1, with n bytes of data in a2
+# return error code in a0, where 0 is OK
+.globl i2c_write_nostop
+i2c_write_nostop:
+	li t0, I2CX_BASE
+	sw zero, _IC_ENABLE(t0)
+	sw a0, _IC_TAR(t0)
+	li t1, b_IC_ENABLE_ENABLE
+	sw t1, _IC_ENABLE(t0)
+
+	# send byte
+1:	lbu t1, 0(a1)
+	sw t1, _IC_DATA_CMD(t0)
+	# wait for tx ready
+3:	lw t1, _IC_RAW_INTR_STAT(t0)
+	andi t1, t1, b_IC_RAW_INTR_STAT_TX_EMPTY
+	beqz t1, 3b
+	# check for abort
+4:	lw t1, _IC_TX_ABRT_SOURCE(t0)
+	bnez t1, 5f
+	addi a1, a1, 1
+	addi a2, a2, -1
+	# repeat if not last byte
+	bnez a2, 1b
+	# Done
+	li a0, 0
+	ret
+
+	# we got an abort
+5:	lw t2, _IC_CLR_TX_ABRT(t0)
+6:	lw t1, _IC_RAW_INTR_STAT(t0)
+	andi t1, t1, b_IC_RAW_INTR_STAT_STOP_DET
+	beqz t1, 6b
+	lw t1, _IC_CLR_STOP_DET(t0)
 	li a0, 1
 	ret
 
@@ -347,6 +449,10 @@ i2c_scan:
   	sw s1, 4(sp)
 
 	call i2c_init
+
+	call uart_init       # Initialize UART
+    la a0, msg           # Load address of message
+    call uart_puts       # Print message
 
 	li s1, 0
 1:	mv a0, s1
@@ -359,7 +465,7 @@ i2c_scan:
 	la a1, tbuf
 	li a2, 1
 	call i2c_read
-	bnez a1, no_addr
+	bnez a0, no_addr
 	# got something at this addr, print the address in hex
 	mv a0, s1
 	la a1, tbuf
@@ -371,6 +477,8 @@ i2c_scan:
 	j 2f
 no_addr:
 	# nothing at this address
+	# li a0, '.'
+	# call uart_putc
 
 2:	addi s1, s1, 1
 	li t1, 127
@@ -383,4 +491,5 @@ no_addr:
 	ret
 
 .section .data
-tbuf: .byte 0, 0, 0, 0
+tbuf: .byte 0, 0, 0, 0, 0, 0, 0, 0
+msg: .asciz "I2C scan\n"
