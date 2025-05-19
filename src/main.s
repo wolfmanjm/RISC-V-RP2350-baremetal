@@ -15,7 +15,8 @@ main:
 	# call test_rotary
 	# call test_tft
 	# call test_pwm
-	call i2c_scan
+	# call i2c_scan
+	call test_imu
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)

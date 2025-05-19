@@ -23,11 +23,23 @@ src/startup.s does the initial setup and sets the clocks to run at 150mHz,
 then after the setup calls main in main.s. which currently calls the test
 routine that is being worked on.
 
-Currently we have gpio, multicore, timers, ticks, uart, spi1, pwm, ili9341,
-rotary and some blink examples. gpio interrupts with a test that uses a
-rotary encoder is also included. One test in PWM is one that can be used to
-terst an ESC and uses the encoder to increase or decrease the duty cycle, and
-displays it on the TFT display.
+Currently we have the following peripherals implemented...
+
+* gpio
+* multicore
+* timers
+* ticks
+* uart
+* spi1
+* pwm
+* ili9341
+* i2c
+* rotary encoder
+* some blink examples
+* gpio interrupts with a test that uses a rotary encoder
+
+Also a test in PWM is one that can be used to test an ESC and uses the encoder
+to increase or decrease the duty cycle, and displays it on the TFT display.
 
 I am particularly happy about the multicore as this is modelled after the
 pico-sdk but far less complicated. You simply pass in the address where you
