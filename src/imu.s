@@ -123,18 +123,13 @@ test_imu:
     call uart_puts       # Print message
 
     call who_am_i
-	la a1, t2buf
-	call parse_2h
-	la a0, t2buf
-	call uart_puts
+	call uart_print2hex
 
     la a0, msg2          # Load address of message
     call uart_puts       # Print message
     call read_temp
-	la a1, t2buf
-	call parse_2h
-	la a0, t2buf
-	call uart_puts
+	call uart_print2hex
+	call uart_printnl
 
  	lw ra, 0(sp)
   	addi sp, sp, 4
@@ -143,4 +138,3 @@ test_imu:
 .section .data
 msg1: .asciz "IMU Test\nWho am i: "
 msg2: .asciz "\nTemp: "
-t2buf: .dcb.b 16

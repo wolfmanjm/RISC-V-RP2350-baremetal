@@ -148,7 +148,7 @@ parse_un:
 	ret
 
 .globl parse_n
- parse_n:
+parse_n:
 	bltz a0, 1f
 	j parse_un
 	# handle negative case
@@ -218,6 +218,33 @@ parse_8h:
 	call parse_4h
 	popra
 	ret
+
+# print hex byte in a0
+.globl uart_print2hex
+uart_print2hex:
+	pushra
+	la a1, numstr
+	call parse_2h
+	la a0, numstr
+	call uart_puts
+	popra
+	ret
+
+# print number in a0
+.globl uart_printn
+uart_printn:
+	pushra
+	la a1, numstr
+	call parse_n
+	la a0, numstr
+	call uart_puts
+	popra
+	ret
+
+.globl uart_printnl
+uart_printnl:
+	li a0, 10
+	j uart_putc
 
 .globl test_uart
 test_uart:
