@@ -37,10 +37,12 @@
 .equ L3G_OUT_Z_H, 0x2D
 
 .section .data
+.p2align 1
 i2cbuf: .dcb.b 16
 
 .section .text
 # a0 i2caddr, a1 reg returns val in a0, 0x8000 if an error
+.globl mimu_get_reg
 mimu_get_reg:
 	addi sp, sp, -8
   	sw ra, 0(sp)
@@ -70,20 +72,50 @@ mimu_get_reg:
   	addi sp, sp, 8
   	ret
 
-# : mimu-writereg ( val reg addr -- )
-# 	-rot
-# 	mimu-i2cbuf c!
-# 	mimu-i2cbuf 1+ c!
-# 	2 mimu-i2cbuf rot i2c-writebuf if ." writereg failed" then
-# ;
+# a0 i2caddr, a1 reg, a2 val, returns 0 in a0 if ok
+.globl mimu_writereg
+mimu_writereg:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+	la t0, i2cbuf
+	sb a1, 0(t0)
+	sb a2, 1(t0)
+	la a1, i2cbuf
+	li a2, 2
+	call i2c_write
+ 	lw ra, 0(sp)
+  	addi sp, sp, 4
+  	ret
 
-# \ returns requested registers in mimu-i2cbuf
-# : mimu-get-regs ( n reg addr -- errflg )
-# 	>r mimu-i2cbuf c!
-# 	1 mimu-i2cbuf r> i2c-writebuf-nostop if ." getregs failed" true exit then
-# 	mimu-i2cbuf i2c-readbuf-restart if ." getregs failed" true exit then
-# 	false
-# ;
+# a0 i2caddr, a1 reg, a2 nvals, returns 0 in a0 if ok
+# results are in i2cbuf
+.globl mimu_get_regs
+mimu_get_regs:
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw s1, 4(sp)
+  	sw s2, 8(sp)
+
+  	mv s1, a0
+  	mv s2, a2
+
+	la t0, i2cbuf
+	sb a1, 0(t0)
+	la a1, i2cbuf
+	li a2, 1
+	call i2c_write_nostop
+	bnez a0, 1f
+
+	mv a0, s1
+	la a1, i2cbuf
+	mv a2, s2
+	call i2c_read_restart
+
+1: 	lw ra, 0(sp)
+  	lw s1, 4(sp)
+  	lw s2, 8(sp)
+  	addi sp, sp, 12
+  	ret
 
 # should return 0xD4
 who_am_i:
@@ -110,11 +142,76 @@ read_temp:
   	addi sp, sp, 4
 	ret
 
+# returns a0 0 if ok
+gyro_init:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+  	li a0, GYRO_ADDR
+  	li a1, L3G_CTRL_REG1
+  	li a2, 0x0F
+  	call mimu_writereg 	# enable all, 100 hz
+  	bnez a0, 1f
+	li a0, GYRO_ADDR
+	li a1, L3G_CTRL_REG2
+	li a2, 0x00
+	call mimu_writereg 	# high pass filter
+	bnez a0, 1f
+	li a0, GYRO_ADDR
+	li a1, L3G_CTRL_REG3
+	li a2, 0x00
+	call mimu_writereg
+	bnez a0, 1f
+	li a0, GYRO_ADDR
+	li a1, L3G_CTRL_REG4
+	li a2, 0x20
+	call mimu_writereg 	# 2000 dps
+	bnez a0, 1f
+	li a0, GYRO_ADDR
+	li a1, L3G_CTRL_REG5
+	li a2, 0x00
+	call mimu_writereg
+	bnez a0, 1f
+
+1: 	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
+# returns gx, gy, gz in a0, a1, a2
+read_gyro:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+  	li a0, GYRO_ADDR
+  	li a1, L3G_OUT_X_L | 0x80
+  	li a2, 6
+  	call mimu_get_regs
+  	bnez a0, 1f
+  	la t0, i2cbuf
+  	# lbu t1, 0(t0)	# lb
+  	# lb t2, 1(t1)	# hb
+  	# slli t2, t2, 8
+  	# or t1, t1, t2
+  	lh a0, 0(t0)	# as it is little endian we can just read the halfword
+  	lh a1, 2(t0)
+  	lh a2, 4(t0)
+  	j 2f
+
+  	# read error
+1:	mv a0, zero
+	mv a1, zero
+	mv a2, zero
+
+2:	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
 
 .globl test_imu
 test_imu:
-	addi sp, sp, -4
+	addi sp, sp, -12
   	sw ra, 0(sp)
+  	sw s1, 4(sp)
+  	sw s2, 8(sp)
 
 	call i2c_init
 	call uart_init       # Initialize UART
@@ -131,10 +228,45 @@ test_imu:
 	call uart_print2hex
 	call uart_printnl
 
- 	lw ra, 0(sp)
-  	addi sp, sp, 4
+	call gyro_init
+	bnez a0, 2f
+
+
+1:	la a0, msg3
+	call uart_puts
+	call read_gyro
+	mv s1, a1
+	mv s2, a2
+	call uart_printn
+	li a0, ','
+	call uart_putc
+
+	mv a0, s1
+	call uart_printn
+	li a0, ','
+	call uart_putc
+
+	mv a0, s2
+	call uart_printn
+
+	li a0, 300
+	call delayms
+
+	call uart_qc
+	beqz a0, 1b
+	j 3f
+
+2:	la a0, msg4
+	call uart_puts
+
+3: 	lw ra, 0(sp)
+ 	lw s1, 4(sp)
+ 	lw s2, 8(sp)
+  	addi sp, sp, 12
 	ret
 
 .section .data
 msg1: .asciz "IMU Test\nWho am i: "
 msg2: .asciz "\nTemp: "
+msg3: .asciz "\nGyro: "
+msg4: .asciz "\nThere was a read error\n"

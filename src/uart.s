@@ -90,7 +90,16 @@ uart_init:
 	# enable uart
 	li t1, UART_ENABLE
 	sw t1, _UART0_CR(t0)
-    ret
+
+	# clear rx fifo
+	li t0, UART0_BASE
+2:	lw t1, _UART0_FR(t0)
+	andi t1, t1, 0x10  		# UARTFR_RX_FIFO_EMPTY, Bit 4
+	bnez t1, 3f
+	lbu t1, _UART0_DR(t0)
+	j 2b
+
+3:  ret
 
 .globl uart_putc
 uart_putc:
@@ -120,6 +129,18 @@ uart_getc:
 	andi t1, t1, 0x10  		# UARTFR_RX_FIFO_EMPTY, Bit 4
 	bnez t1, 1b
 	lbu a0, _UART0_DR(t0)
+	ret
+
+# returns a0 = 1 if character available else 0
+.globl uart_qc
+uart_qc:
+	li t0, UART0_BASE
+1:	lw t1, _UART0_FR(t0)
+	andi t1, t1, 0x10  		# UARTFR_RX_FIFO_EMPTY, Bit 4
+	beqz t1, 2f
+	mv a0, zero
+	ret
+2: 	li a0, 1
 	ret
 
 .globl parse_un
