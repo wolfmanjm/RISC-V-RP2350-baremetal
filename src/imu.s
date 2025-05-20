@@ -1,4 +1,7 @@
 # driver for mini-imu 9
+# L3GD20 gyro
+# LSM303DLHC mag and accelerometer
+
 .equ GYRO_ADDR, 0x6B   # L3GD20 gyro
 .equ ACCEL_ADDR, 0x19  # LSM303DLHC_DEVICE accel
 .equ MAG_ADDR, 0x1E    # LSM303DLHC_DEVICE magno
@@ -142,7 +145,7 @@ read_temp:
   	addi sp, sp, 4
 	ret
 
-# returns a0 0 if ok
+# returns a0 = 0 if ok
 gyro_init:
 	addi sp, sp, -4
   	sw ra, 0(sp)
@@ -164,8 +167,8 @@ gyro_init:
 	bnez a0, 1f
 	li a0, GYRO_ADDR
 	li a1, L3G_CTRL_REG4
-	li a2, 0x20
-	call mimu_writereg 	# 2000 dps
+	li a2, 0x00
+	call mimu_writereg 	# 250 dps
 	bnez a0, 1f
 	li a0, GYRO_ADDR
 	li a1, L3G_CTRL_REG5
@@ -206,6 +209,105 @@ read_gyro:
   	addi sp, sp, 4
 	ret
 
+# returns a0 = 0 if ok
+acc_mag_init:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+  	li a0, ACCEL_ADDR
+  	li a1, LSM303_CTRL_REG1_A
+  	li a2, 0x47
+  	call mimu_writereg 	# 50 hz
+  	bnez a0, 1f
+
+  	li a0, ACCEL_ADDR
+  	li a1, LSM303_CTRL_REG4_A
+  	li a2, 0x00
+  	call mimu_writereg 	# +/-2g 1mg/LSB
+  	bnez a0, 1f
+
+  	li a0, MAG_ADDR
+  	li a1, LSM303_MR_REG_M
+  	li a2, 0x00
+  	call mimu_writereg
+  	bnez a0, 1f
+
+  	li a0, MAG_ADDR
+  	li a1, LSM303_CRA_REG_M
+  	li a2, 0x08
+  	call mimu_writereg
+  	bnez a0, 1f
+
+  	li a0, MAG_ADDR
+  	li a1, LSM303_CRB_REG_M
+  	li a2, 0x20
+  	call mimu_writereg
+  	bnez a0, 1f
+
+1: 	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
+# returns ax, ay, az in a0, a1, a2
+read_acc:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+  	li a0, ACCEL_ADDR
+  	li a1, LSM303_OUT_X_L_A | 0x80
+  	li a2, 6
+  	call mimu_get_regs
+  	bnez a0, 1f
+  	la t0, i2cbuf
+  	lh a0, 0(t0)	# as it is little endian (L,H) we can just read the halfword
+  	lh a1, 2(t0)
+  	lh a2, 4(t0)
+  	# adjust for 12-bit resolution, left-aligned when read
+  	srai a0, a0, 4
+  	srai a1, a1, 4
+  	srai a2, a2, 4
+  	j 2f
+
+  	# read error
+1:	mv a0, zero
+	mv a1, zero
+	mv a2, zero
+
+2:	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
+# returns mx, my, mz in a0, a1, a2
+read_mag:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+  	li a0, MAG_ADDR
+  	li a1, LSM303_OUT_X_H_M
+  	li a2, 6
+  	call mimu_get_regs
+  	bnez a0, 1f
+  	la t0, i2cbuf
+  	lh a0, 0(t0)	# as it is big endian (H,L) we will need to swap the bytes
+  	lh a1, 2(t0)
+  	lh a2, 4(t0)
+  	# swap the bytes
+   	rev8 a0, a0
+	srai a0, a0, 16
+   	rev8 a1, a1
+	srai a1, a1, 16
+   	rev8 a2, a2
+	srai a2, a2, 16
+  	j 2f
+  	# read error
+1:	mv a0, zero
+	mv a1, zero
+	mv a2, zero
+
+2:	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
 .globl test_imu
 test_imu:
 	addi sp, sp, -12
@@ -230,8 +332,10 @@ test_imu:
 
 	call gyro_init
 	bnez a0, 2f
+	call acc_mag_init
+	bnez a0, 2f
 
-
+	# read gyro, acc, mag until key press
 1:	la a0, msg3
 	call uart_puts
 	call read_gyro
@@ -240,15 +344,44 @@ test_imu:
 	call uart_printn
 	li a0, ','
 	call uart_putc
-
 	mv a0, s1
 	call uart_printn
 	li a0, ','
 	call uart_putc
-
 	mv a0, s2
 	call uart_printn
 
+	la a0, msg5
+	call uart_puts
+	call read_acc
+	mv s1, a1
+	mv s2, a2
+	call uart_printn
+	li a0, ','
+	call uart_putc
+	mv a0, s1
+	call uart_printn
+	li a0, ','
+	call uart_putc
+	mv a0, s2
+	call uart_printn
+
+	la a0, msg6
+	call uart_puts
+	call read_mag
+	mv s1, a1
+	mv s2, a2
+	call uart_printn
+	li a0, ','
+	call uart_putc
+	mv a0, s1
+	call uart_printn
+	li a0, ','
+	call uart_putc
+	mv a0, s2
+	call uart_printn
+
+	# wait a while
 	li a0, 300
 	call delayms
 
@@ -265,8 +398,11 @@ test_imu:
   	addi sp, sp, 12
 	ret
 
+
 .section .data
 msg1: .asciz "IMU Test\nWho am i: "
 msg2: .asciz "\nTemp: "
 msg3: .asciz "\nGyro: "
 msg4: .asciz "\nThere was a read error\n"
+msg5: .asciz " Acc: "
+msg6: .asciz " Mag: "

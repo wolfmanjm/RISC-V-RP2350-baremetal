@@ -231,14 +231,20 @@ parse_4h:
 # terminates string with 0
 # on return a1 points to next character
 parse_8h:
-	pushra
-	mv t4, a0
+	addi sp, sp, -8
+  	sw ra, 0(sp)
+  	sw s1, 4(sp)
+
+	mv s1, a0
 	srli a0, a0, 16
 	call parse_4h
-	mv a0, t4
+	mv a0, s1
 	call parse_4h
-	popra
-	ret
+
+ 	lw ra, 0(sp)
+  	lw s1, 4(sp)
+  	addi sp, sp, 8
+  	ret
 
 # print hex byte in a0
 .globl uart_print2hex
@@ -246,6 +252,17 @@ uart_print2hex:
 	pushra
 	la a1, numstr
 	call parse_2h
+	la a0, numstr
+	call uart_puts
+	popra
+	ret
+
+# print hex word in a0
+.globl uart_print8hex
+uart_print8hex:
+	pushra
+	la a1, numstr
+	call parse_8h
 	la a0, numstr
 	call uart_puts
 	popra
