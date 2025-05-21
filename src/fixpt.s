@@ -79,7 +79,7 @@ fpdiv:
     xor     t2, t2, a4
     xor     t1, t1, a4
     xor     t0, t0, a4
-    add    t0, t0, a4
+    add     t0, t0, a4
     sltu    t5, t0, a4     # carry from low
     add     t1, t1, t5
     sltu    t5, t1, t5     # carry from mid
@@ -88,7 +88,7 @@ fpdiv:
     # 4) Absolute‑value the 64‑bit denominator in [a3:a2]
     xor     a3, a3, a5
     xor     a2, a2, a5
-    add    a2, a2, a5
+    add     a2, a2, a5
     sltu    t5, a2, a5     # carry into high
     add     a3, a3, t5
 
@@ -175,10 +175,20 @@ fpadd:
 #   a1 = result high 32 bits
 .globl fpsub
 fpsub:
-    sub     a0, a0, a2          # low part
-    sltu    t0, a0, a2          # borrow from low?
-    sub     a1, a1, a3
-    sub     a1, a1, t0          # subtract borrow
+    sltu t0, a0, a2       # Set t0 = 1 if a borrow will occur (a0 < a2)
+    sub  a0, a0, a2       # Subtract lower 32 bits: a0 = a0 - a2
+    sub  a1, a1, a3       # Subtract upper 32 bits
+    sub  a1, a1, t0       # Subtract borrow from upper 32 bits
+    ret
+
+# negate fp number in a0/a1
+fpneg:
+    not a0, a0          # Invert lower 32 bits
+    not a1, a1          # Invert upper 32 bits
+    addi a0, a0, 1      # Add 1 to lower half
+    # Check if there was a carry (a0 became zero after addition)
+    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
+    add a1, a1, t0      # Add carry to upper half
     ret
 
 # Input: a1:a0 = y (S31.32), a3:a2 = x (S31.32)
@@ -328,22 +338,23 @@ uart_printfp:
   	sw ra, 0(sp)
   	sw s1, 4(sp)
 
-    bltz a1, 1f
-    j 2f
-
-    # negate it
-1:	mv 		s1, a0
+    bgez a1, 1f 		# see if negative
+    # negate it and print '-''
+	mv 		s1, a0
     li      a0, '-'		# print -
     call    uart_putc
-	neg a0, s1          # Negate lower 32 bits (a0 = -s1)
-    seqz t0, a0         # Set t0 = 1 if result is 0 (carry to upper)
+
+    not a0, s1          # Invert lower 32 bits
     not a1, a1          # Invert upper 32 bits
-    add a1, a1, t0      # Add carry
+    addi a0, a0, 1      # Add 1 to lower half
+    # Check if there was a carry (a0 became zero after addition)
+    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
+    add a1, a1, t0      # Add carry to upper half
 
     # Print integer part in a1
-2:	mv s1, a0
+1:	mv s1, a0
     mv a0, a1
-    call uart_printun	 # prints integer part
+    call uart_printun	 # prints integer part unsigned
 
     # Print dot
     li a0, '.'
@@ -360,8 +371,7 @@ uart_printfp:
     li      t4, 100000
     li      t5, 10
     li      t6, 6           # digit count
-.print_frac_loop:
-    divu    t1, a0, t4      # digit = a0 / t4
+2:  divu    t1, a0, t4      # digit = a0 / t4
     remu    a0, a0, t4      # remainder
     mv 		s1, a0
     addi    a0, t1, '0'
@@ -369,7 +379,7 @@ uart_printfp:
     mv 		a0, s1
     divu    t4, t4, t5
     addi    t6, t6, -1
-    bnez    t6, .print_frac_loop
+    bnez    t6, 2b
 
   	lw ra, 0(sp)
   	lw s1, 4(sp)
@@ -409,24 +419,25 @@ test_fp:
 	call uart_printfp
 	call uart_printnl
 
+	# 3.14159265
 	li a0, 0x243F6A79
 	li a1, 0x00000003
 	call uart_printfp
 	call uart_printnl
 
+	# -3.14159265
 	li a0, 0xDBC09587
 	li a1, 0xFFFFFFFC
 	call uart_printfp
 	call uart_printnl
 
-	li a0, 0xE068DB8C
+	# -1
+	li a0, 0x00000000
 	li a1, 0xFFFFFFFF
 	call uart_printfp
 	call uart_printnl
 
-	j 1f
-
-	# 0.01 * 10 = 0.1 0x00000000_1999999A
+	# 0.01 * 10 = 0.1 = 0x00000000_1999999A
 	li a0, 0x028F5C29
 	li a1, 0
 	li a2, 0
