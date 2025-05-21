@@ -279,6 +279,16 @@ uart_printn:
 	popra
 	ret
 
+.globl uart_printun
+uart_printun:
+	pushra
+	la a1, numstr
+	call parse_un
+	la a0, numstr
+	call uart_puts
+	popra
+	ret
+
 .globl uart_printnl
 uart_printnl:
 	li a0, 10
@@ -328,6 +338,12 @@ test_uart:
     call uart_puts
     li a0, 10
     call uart_putc
+
+    li a0, 3
+    call uart_printn
+
+    li a0, -3
+    call uart_printn
 
     popra
     ret
