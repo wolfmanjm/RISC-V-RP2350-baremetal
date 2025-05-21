@@ -291,8 +291,35 @@ uart_printun:
 
 .globl uart_printnl
 uart_printnl:
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+	sw a1, 8(sp)
+
 	li a0, 10
-	j uart_putc
+	call uart_putc
+
+  	lw ra, 0(sp)
+  	lw a0, 4(sp)
+ 	lw a1, 8(sp)
+  	addi sp, sp, 12
+  	ret
+
+.globl uart_printspc
+uart_printspc:
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+	sw a1, 8(sp)
+
+	li a0, ' '
+	call uart_putc
+
+  	lw ra, 0(sp)
+  	lw a0, 4(sp)
+ 	lw a1, 8(sp)
+  	addi sp, sp, 12
+  	ret
 
 .globl test_uart
 test_uart:

@@ -1,5 +1,5 @@
 # attempt to do s31.32 fixed point arithmetic for risc-v
-# with help from chatgpt
+# with help from chatgpt, which got about 75% - 80% correct
 
 # 32-bit signed integer multiplication returning 64-bit product
 #   arguments:
@@ -25,31 +25,47 @@ mul_signed_full:
 #   a1 = result_hi
 .globl fpmul
 fpmul:
-    # a_lo * b_lo
-    mul     t0, a0, a2         # t0 = low 32 bits
-    mulhu   t1, a0, a2         # t1 = high 32 bits
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw s0, 4(sp)
+	sw s1, 8(sp)
 
-    # a_hi * b_lo
-    mul     t2, a1, a2
+    # Step 1: lo = A_lo * B_lo
+    mul     t0, a0, a2        # t0 = A_lo * B_lo (low 32 bits)
+    mulhu   t1, a0, a2        # t1 = A_lo * B_lo (high 32 bits)
+    # Step 2: mid1 = A_hi * B_lo
+    mul     t2, a1, a2        # t2 = A_hi * B_lo (low)
+    # Step 3: mid2 = A_lo * B_hi
+    mul     t3, a0, a3        # t3 = A_lo * B_hi (low)
+    # Step 4: mid_sum = mid1 + mid2
+    add     t4, t2, t3        # t4 = mid1 + mid2
+    sltu    t5, t4, t2        # t5 = carry from the addition
+    # Add mid_sum low 32 bits to t1 (carry from A_lo * B_lo)
+    add     t1, t1, t4        # t1 = t1 + mid_sum_lo
+    add     t1, t1, t5        # t1 = add carry from mid_sum
+    # Step 5: hi = A_hi * B_hi
+    mul     t6, a1, a3        # t6 = A_hi * B_hi
+    # Final hi part = hi + carry from mid_sum (if overflowed)
+    # Now accumulate the upper 32 bits of mid1 and mid2
+    mulhu   s0, a1, a2        # s0 = upper 32 bits of A_hi * B_lo
+    mulhu   s1, a0, a3        # s1 = upper 32 bits of A_lo * B_hi
+    add     t6, t6, s0
+    add     t6, t6, s1
+    # Add carry from previous add t4 overflow if needed
+    add     t6, t6, t5        # account for possible carry in mid_sum
 
-    # a_lo * b_hi
-    mul     t3, a0, a3
+    # Result:
+    # t0 = low 32 bits of result
+    # t1 = mid 32 bits
+    # t6 = high 64-bit result upper half
 
-    # t2 + t3 + t1 (middle 64 bits)
-    add     t4, t2, t3
-    add     t4, t4, t1         # t4 = middle 32 bits after combining
+    mv a0, t1
+    mv a1, t6
 
-    # a_hi * b_hi (not needed unless doing 128-bit result)
-    # mul     t5, a1, a3       # optional
-
-    # Now assemble the result:
-    # 128-bit result = [hi64 | lo64] = (t4 << 32) | (t0 >> 0)
-
-    # Right shift full 128-bit result by 32:
-    # result = (middle << 0) | (lo >> 32)
-    mv      a0, t4             # lower 32 bits of result
-    srl     a1, t4, 31         # sign-extend if needed (optional)
-
+  	lw ra, 0(sp)
+  	lw s0, 4(sp)
+ 	lw s1, 8(sp)
+  	addi sp, sp, 12
     ret
 
 # Output:
@@ -234,33 +250,32 @@ do_div:
     mv      s2, a0
     mv      s1, a1
 
-    # abs(z)
-    srai    t2, a1, 31     # sign_z
-    xor     a0, a0, t2
-    xor     a1, a1, t2
-    add     a0, a0, t2
-    sltu    t3, a0, t2
-    add     a1, a1, t3
+    # abs(z) - corrected
+    bgez    a1, 1f  	# sign_z
+	# Corrected negate z
+    not a0, a0          # Invert lower 32 bits
+    not a1, a1          # Invert upper 32 bits
+    addi a0, a0, 1      # Add 1 to lower half
+    # Check if there was a carry (a0 became zero after addition)
+    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
+    add a1, a1, t0      # Add carry to upper half
 
-    # Compute 1 - |z|
-    li      t4, 0xFFFFFFFF     # 1.0 in S31.32
-    li      t5, 0x00000000
-    sub     a0, t4, a0
-    sub     a1, t5, a1
-    sltu    t3, t4, a0
-    sub     a1, a1, t3
+    # Compute 1 - |z| - corrected
+1:  li      t4, 0x00000000  # 1.0 in S31.32
+    li      t5, 0x00000001
+    sltu t0, a0, t4       	# Set t0 = 1 if a borrow will occur (a0 < a2)
+    sub  a0, t4, a0       	# Subtract lower 32 bits: a0 = a0 - a2
+    sub  a1, t5, a1       	# Subtract upper 32 bits
+    sub  a1, a1, t0       	# Subtract borrow from upper 32 bits
 
     # Multiply by 0.273 (S31.32)
-    li      t6, 0x0458B2D7     # 0.273 low
-    li      s3, 0x00000000     # 0.273 high
-    # multiply a1:a0 × s3:t6 → result in a1:a0
-    # Reuse your fixed-point multiply routine here
-    mv      a2, t6
-    mv      a3, s3
+    li      a2, 0x45E353F8  # 0.273 low
+    mv      a3, zero
+    # multiply a1:a0 × a3:a2 → result in a1:a0
     call    fpmul   # must return a1:a0
 
-    # Add π/4
-    li      t2, 0x0C90FDBA     # π/4 low
+    # Add π/4 - corrected
+    li      t2, 0xC90FDA9E     # π/4 low
     li      t3, 0x00000000     # π/4 high
     add     a0, a0, t2
     sltu    t4, a0, t2
@@ -308,10 +323,13 @@ atan2done:
 #
 
 # print fixed point number in hex a0 Lower, a1 Upper
+# preserves a0/a1
 uart_printfphex:
-	addi sp, sp, -8
+	addi sp, sp, -16
   	sw ra, 0(sp)
   	sw s1, 4(sp)
+  	sw a0, 8(sp)
+  	sw a1, 12(sp)
 
 	mv s1, a0
 	mv a0, a1
@@ -323,7 +341,9 @@ uart_printfphex:
 
   	lw ra, 0(sp)
   	lw s1, 4(sp)
-  	addi sp, sp, 8
+  	lw a0, 8(sp)
+  	lw a1, 12(sp)
+  	addi sp, sp, 16
 	ret
 
 
@@ -333,10 +353,13 @@ uart_printfphex:
 #   a1 = upper 32 bits integer part
 # Prints:
 #   S31.32 value as signed decimal to uart_putc (with 6 digits after decimal)
+# preserves a0/a1
 uart_printfp:
-	addi sp, sp, -8
+	addi sp, sp, -16
   	sw ra, 0(sp)
   	sw s1, 4(sp)
+  	sw a0, 8(sp)
+  	sw a1, 12(sp)
 
     bgez a1, 1f 		# see if negative
     # negate it and print '-''
@@ -383,9 +406,18 @@ uart_printfp:
 
   	lw ra, 0(sp)
   	lw s1, 4(sp)
-  	addi sp, sp, 8
+  	lw a0, 8(sp)
+  	lw a1, 12(sp)
+  	addi sp, sp, 16
     ret
 
+# macro to create a Fixed point constant params are:
+# integer part fractional part, decimal places (10 == .1, 100 = 0.01, etc)
+.macro FPCONST HW LW PREC
+	li a0, (\LW * (1<<32)) / \PREC
+	li a1, \HW
+.endm
+# FPCONST 1 1234 10000  # for 1.1234
 
 .globl test_fp
 test_fp:
@@ -394,13 +426,10 @@ test_fp:
   	sw s1, 4(sp)
 
 	call uart_init
-	li a0, 0x028F5C29
-	li a1, 0
+
+	FPCONST 1 1234 10000
 	call uart_printfphex
-	li a0, ':'
-	call uart_putc
-	li a0, 0x028F5C29
-	li a1, 0
+	call uart_printspc
 	call uart_printfp
 	call uart_printnl
 
@@ -437,6 +466,30 @@ test_fp:
 	call uart_printfp
 	call uart_printnl
 
+
+	# 0.273
+	li a0, 0x45E353F8
+	li a1, 0
+	call uart_printfp
+	call uart_printnl
+
+	# 0.273 * 100 == 27.3
+	li a0, 0x45E353F8
+	li a1, 0
+	li a2, 0
+	li a3, 100
+	call fpmul
+	call uart_printfp
+	call uart_printnl
+
+
+	# 0.78539816 PI/4
+	li a0, 0xC90FDA9E
+	li a1, 0
+	call uart_printfp
+	call uart_printnl
+
+
 	# 0.01 * 10 = 0.1 = 0x00000000_1999999A
 	li a0, 0x028F5C29
 	li a1, 0
@@ -455,7 +508,62 @@ test_fp:
 	call uart_printfp
 	call uart_printnl
 
+
+	# 0 - 3.14159265 == -3.14159265
+	li a0, 0
+	li a1, 0
+	li a2, 0x243F6A79
+	li a3, 0x00000003
+	call fpsub
+	call uart_printfp
+	call uart_printnl
+
+	# -3.14159265 + 3.14159265 == 0
+	li a0, 0xDBC09587
+	li a1, 0xFFFFFFFC
+	li a2, 0x243F6A79
+	li a3, 0x00000003
+	call fpadd
+	call uart_printfp
+	call uart_printnl
+
+	# neg 3.141592 == -3.141592
+	li a0, 0x243F6A79
+	li a1, 0x00000003
+	call fpneg
+	call uart_printfp
+	call uart_printnl
+
+	# neg -3.141592 == 3.141592
+	li a0, 0xDBC09587
+	li a1, 0xFFFFFFFC
+	call fpneg
+	call uart_printfp
+	call uart_printnl
+
+	# atan2(0.1, 1)
+	li a0, 0x1999999A
+	li a1, 0
+	call uart_printfp
+	call uart_printspc
+	li a0, 0
+	li a1, 1
+	call uart_printfp
+	call uart_printspc
+
+	li a0, 0x1999999A
+	li a1, 0
+	li a2, 0
+	li a3, 1
+	call fp_atan2
+	call uart_printfphex
+	call uart_printspc
+	call uart_printfp
+	call uart_printspc
+	call uart_printnl
+
 1: 	lw ra, 0(sp)
   	lw s1, 4(sp)
   	addi sp, sp, 8
 	ret
+
