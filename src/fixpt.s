@@ -59,7 +59,7 @@ fpmul:
   	addi sp, sp, 12
     ret
 
-# Signature (RV32 ABI):
+# Inputs:
 #   a1:a0 = dividend (signed S31.32)
 #   a3:a2 = divisor (signed S31.32)
 # Returns:
@@ -152,11 +152,16 @@ div_sub:
 	j 1b
 
 div_done:
-	# TODO if s1<0 xor s2<0 then negate quotient
-
 	# returns quotient
 	mv a0, t3
 	mv a1, t4
+	# if s1<0 xor s2<0 then negate quotient
+	bexti t0, s1, 31
+	bexti t1, s2, 31
+	xor t0, t0, t1
+    beqz t0, div_exit
+    # negate the results
+    call fpneg
 
 div_exit:
   	lw ra, 0(sp)
