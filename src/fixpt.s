@@ -30,28 +30,19 @@ fpmul:
   	sw s0, 4(sp)
 	sw s1, 8(sp)
 
-    # Step 1: lo = A_lo * B_lo
     mul     t0, a0, a2        # t0 = A_lo * B_lo (low 32 bits)
     mulhu   t1, a0, a2        # t1 = A_lo * B_lo (high 32 bits)
-    # Step 2: mid1 = A_hi * B_lo
     mul     t2, a1, a2        # t2 = A_hi * B_lo (low)
-    # Step 3: mid2 = A_lo * B_hi
     mul     t3, a0, a3        # t3 = A_lo * B_hi (low)
-    # Step 4: mid_sum = mid1 + mid2
     add     t4, t2, t3        # t4 = mid1 + mid2
     sltu    t5, t4, t2        # t5 = carry from the addition
-    # Add mid_sum low 32 bits to t1 (carry from A_lo * B_lo)
     add     t1, t1, t4        # t1 = t1 + mid_sum_lo
     add     t1, t1, t5        # t1 = add carry from mid_sum
-    # Step 5: hi = A_hi * B_hi
     mul     t6, a1, a3        # t6 = A_hi * B_hi
-    # Final hi part = hi + carry from mid_sum (if overflowed)
-    # Now accumulate the upper 32 bits of mid1 and mid2
     mulhu   s0, a1, a2        # s0 = upper 32 bits of A_hi * B_lo
     mulhu   s1, a0, a3        # s1 = upper 32 bits of A_lo * B_hi
     add     t6, t6, s0
     add     t6, t6, s1
-    # Add carry from previous add t4 overflow if needed
     add     t6, t6, t5        # account for possible carry in mid_sum
 
     # Result:
@@ -207,6 +198,18 @@ fpneg:
     add a1, a1, t0      # Add carry to upper half
     ret
 
+# return abs of a0:a1 in a0:a1
+fpabs:
+    bgez a1, 1f  		# sign_z
+	# negate
+    not a0, a0          # Invert lower 32 bits
+    not a1, a1          # Invert upper 32 bits
+    addi a0, a0, 1      # Add 1 to lower half
+    # Check if there was a carry (a0 became zero after addition)
+    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
+    add a1, a1, t0      # Add carry to upper half
+1: 	ret
+
 # Input: a1:a0 = y (S31.32), a3:a2 = x (S31.32)
 # Output: a1:a0 = atan2(y, x) (S31.32)
 .globl fp_atan2
@@ -227,10 +230,10 @@ fp_atan2:
 
     # If y > 0 → return π/2
     # If y < 0 → return -π/2
-    li      t3, 0x1921FB54     # π/2 low
-    li      t4, 0x00000000     # π/2 high
-    li      t5, 0xE6DE04AC     # -π/2 low
-    li      t6, 0xFFFFFFFF     # -π/2 high
+    li      t3, 0x921FB544     # π/2 low - corrected
+    li      t4, 0x00000001     # π/2 high
+    li      t5, 0x6DE04ABC     # -π/2 low
+    li      t6, 0xFFFFFFFE     # -π/2 high
     bltz    a1, return_neg_pi_2
     mv      a0, t3
     mv      a1, t4
@@ -261,21 +264,21 @@ do_div:
     add a1, a1, t0      # Add carry to upper half
 
     # Compute 1 - |z| - corrected
-1:  li      t4, 0x00000000  # 1.0 in S31.32
-    li      t5, 0x00000001
+1:  li 	t4, 0x00000000  # 1.0 in S31.32
+    li 	t5, 0x00000001
     sltu t0, a0, t4       	# Set t0 = 1 if a borrow will occur (a0 < a2)
-    sub  a0, t4, a0       	# Subtract lower 32 bits: a0 = a0 - a2
-    sub  a1, t5, a1       	# Subtract upper 32 bits
-    sub  a1, a1, t0       	# Subtract borrow from upper 32 bits
+    sub a0, t4, a0       	# Subtract lower 32 bits: a0 = a0 - a2
+    sub a1, t5, a1       	# Subtract upper 32 bits
+    sub a1, a1, t0       	# Subtract borrow from upper 32 bits
 
     # Multiply by 0.273 (S31.32)
-    li      a2, 0x45E353F8  # 0.273 low
+    li      a2, 0x45E353F7  # 0.273 low
     mv      a3, zero
     # multiply a1:a0 × a3:a2 → result in a1:a0
     call    fpmul   # must return a1:a0
 
     # Add π/4 - corrected
-    li      t2, 0xC90FDA9E     # π/4 low
+    li      t2, 0xC90FDAA2     # π/4 low
     li      t3, 0x00000000     # π/4 high
     add     a0, a0, t2
     sltu    t4, a0, t2
@@ -294,8 +297,8 @@ do_div:
 apply_pi_correction:
     bltz    s1, sub_pi         # z was negative → θ = θ - π
     # θ = θ + π
-    li      t2, 0x3243F6A8
-    li      t3, 0x00000000
+    li      t2, 0x243F6A88 		# corrected
+    li      t3, 0x00000003
     add     a0, a0, t2
     sltu    t4, a0, t2
     add     a1, a1, t3
@@ -303,10 +306,10 @@ apply_pi_correction:
     j atan2done
 
 sub_pi:
-    li      t2, 0x3243F6A8
-    li      t3, 0x00000000
+    li      t2, 0x243F6A88	# corrected
+    li      t3, 0x00000003
+    sltu    t4, a0, t2 		# corrected
     sub     a0, a0, t2
-    sltu    t4, a0, t2
     sub     a1, a1, t3
     sub     a1, a1, t4
 
@@ -466,9 +469,21 @@ test_fp:
 	call uart_printfp
 	call uart_printnl
 
+	# -123.456 -> 123.456
+	li a0, 0x8B439582
+	li a1, 0xFFFFFF84
+	call fpabs
+	call uart_printfp
+	call uart_printnl
 
 	# 0.273
 	li a0, 0x45E353F8
+	li a1, 0
+	call uart_printfp
+	call uart_printnl
+
+	# 0.785398163 PI/4
+	li a0, 0xC90FDAA2
 	li a1, 0
 	call uart_printfp
 	call uart_printnl
@@ -481,14 +496,6 @@ test_fp:
 	call fpmul
 	call uart_printfp
 	call uart_printnl
-
-
-	# 0.78539816 PI/4
-	li a0, 0xC90FDA9E
-	li a1, 0
-	call uart_printfp
-	call uart_printnl
-
 
 	# 0.01 * 10 = 0.1 = 0x00000000_1999999A
 	li a0, 0x028F5C29
