@@ -59,101 +59,112 @@ fpmul:
   	addi sp, sp, 12
     ret
 
-# Output:
-# a0 = result low 32 bits (S31.32)
-# a1 = result high 32 bits (S31.32)
-#
 # Signature (RV32 ABI):
-#   a1:a0 = numerator (signed S31.32)
-#   a3:a2 = denominator (signed S31.32)
+#   a1:a0 = dividend (signed S31.32)
+#   a3:a2 = divisor (signed S31.32)
 # Returns:
 #   a1:a0 = quotient (signed S31.32)
 #
-.globl fpdiv
 fpdiv:
+	addi sp, sp, -20
+  	sw ra, 0(sp)
+  	sw s1, 4(sp)
+	sw s2, 8(sp)
+  	sw s3, 12(sp)
+  	sw s4, 16(sp)
 
-    # 1) Build 96‑bit numerator = (num << 32)
-    mv      t0, x0        # t0 = num_low  = 0
-    mv      t1, a0        # t1 = num_mid  = original low
-    mv      t2, a1        # t2 = num_hi   = original high
+  	or t0, a2, a3
+  	bnez t0, 1f
+  	# divide by zero
+  	mv a0, zero
+  	mv a1, zero
+  	j div_exit
 
-    # 2) Extract and save input signs
-    srai    a4, a1, 31    # a4 = sign_num (0 or –1)
-    srai    a5, a3, 31    # a5 = sign_den
+  	# save signs
+1: 	mv s1, a1
+  	mv s2, a3
 
-    # 3) Absolute‑value the 96‑bit numerator in [t2:t1:t0]
-    #    (bitwise invert if sign=–1, then add 1 with proper carry propagation)
-    xor     t2, t2, a4
-    xor     t1, t1, a4
-    xor     t0, t0, a4
-    add     t0, t0, a4
-    sltu    t5, t0, a4     # carry from low
-    add     t1, t1, t5
-    sltu    t5, t1, t5     # carry from mid
-    add     t2, t2, t5
+    # Build the abs 96‑bit numerator = (dividend << 32)
+    call fpabs
+ 	mv t0, zero      # t0 = num_low  = 0
+    mv t1, a0
+    mv t2, a1
 
-    # 4) Absolute‑value the 64‑bit denominator in [a3:a2]
-    xor     a3, a3, a5
-    xor     a2, a2, a5
-    add     a2, a2, a5
-    sltu    t5, a2, a5     # carry into high
-    add     a3, a3, t5
+    # Absolute‑value the 64‑bit denominator in [a3:a2]
+    mv a0, a2
+    mv a1, a3
+    call fpabs
+    mv a2, a0
+    mv a3, a1
 
-    # 5) Prepare quotient = 0
-    mv      t3, x0        # t3 = quot_hi
-    mv      t4, x0        # t4 = quot_lo
+    # Prepare quotient = 0
+    mv t3, zero        # t3 = quot_lo
+    mv t4, zero        # t4 = quot_hi
 
-    # 6) Long‐division loop for 96 ÷ 64
-    li      a6, 64        # bit‑count
+    # Prepare remainder = 0
+    mv t5, zero        # t5 = rem_lo
+    mv t6, zero        # t6 = rem_hi
 
-div_loop:
-    # 6a) shift numerator left by 1: [t2:t1:t0] <<= 1
-    sll     t2, t2, 1
-    srl     t5, t1, 31
-    or      t2, t2, t5
-    sll     t1, t1, 1
-    srl     t5, t0, 31
-    or      t1, t1, t5
-    sll     t0, t0, 1
+    # Long‐division loop for 96 ÷ 64
+    li s3, 96          # bit‑count
 
-    # 6b) shift quotient left by 1: [t3:t4] <<= 1
-    sll     t3, t3, 1
-    srl     t5, t4, 31
-    or      t3, t3, t5
-    sll     t4, t4, 1
+ div_loop:
+ 	# shift remainder left 1
+ 	slli t6, t6, 1
+	srli s4, t5, 31
+	or t6, t6, s4
+	slli t5, t5, 1
+	# extract MSbit from numerator and then or into lsb of remainder
+	bexti s4, t2, 31
+	or t5, t5, s4
+	# shift numerator left 1 [t2:t1:t0] <<= 1
+    sll t2, t2, 1
+    srl s4, t1, 31
+    or t2, t2, s4
+    sll t1, t1, 1
+    srl s4, t0, 31
+    or t1, t1, s4
+    sll t0, t0, 1
 
-    # 6c) if numerator ≥ denominator then subtract & set low‐bit
-    bgtu    t2, a3,  div_sub
-    bltu    t2, a3,  div_skip
-    bgeu    t1, a2,  div_sub
-    j       div_skip
+    # shift quotient left
+    slli t4, t4, 1
+	srli s4, t3, 31
+	or t4, t4, s4
+	slli t3, t3, 1
+
+    # Compare remainder(t6:t5) >= divisor(a3:a2)
+    bgtu t6, a3, div_sub
+    bltu t6, a3, 1f
+    bgeu t5, a2, div_sub
+1:	# decrement counter
+	addi s3, s3, -1
+	bnez s3, div_loop
+	j div_done
 
 div_sub:
-    sub     t1, t1, a2
-    sltu    t5, t1, a2     # borrow from mid?
-    sub     t2, t2, a3
-    sub     t2, t2, t5     # propagate borrow into high
-    ori     t4, t4, 1      # set quotient’s low bit
+	# remainder -= divisor
+	sltu s4, t5, a2       # Set s4 = 1 if a borrow will occur
+    sub  t5, t5, a2       # Subtract lower 32 bits
+    sub  t6, t6, a3       # Subtract upper 32 bits
+    sub  t6, t6, s4       # Subtract borrow from upper 32 bits
+	# quotient |= 1
+	ori t3, t3, 1
+	j 1b
 
-div_skip:
-    addi    a6, a6, -1
-    bnez    a6, div_loop
+div_done:
+	# TODO if s1<0 xor s2<0 then negate quotient
 
-    # 7) Restore sign: if (sign_num ^ sign_den) < 0, negate quotient
-    xor     t5, a4, a5
-    beqz    t5, done
+	# returns quotient
+	mv a0, t3
+	mv a1, t4
 
-    # 7a) 64‑bit two’s‑complement negation of [t3:t4]
-    not     t4, t4
-    not     t3, t3
-    addi    t4, t4, 1
-    sltu    t5, t4, x0     # carry
-    add     t3, t3, t5
-
-done:
-    # 8) Return quotient in a1:a0
-    mv      a0, t3
-    mv      a1, t4
+div_exit:
+  	lw ra, 0(sp)
+  	lw s1, 4(sp)
+ 	lw s2, 8(sp)
+  	lw s3, 12(sp)
+  	lw s4, 16(sp)
+  	addi sp, sp, 20
     ret
 
 # Inputs:
@@ -189,6 +200,7 @@ fpsub:
     ret
 
 # negate fp number in a0/a1
+.globl fpneg
 fpneg:
     not a0, a0          # Invert lower 32 bits
     not a1, a1          # Invert upper 32 bits
@@ -199,6 +211,7 @@ fpneg:
     ret
 
 # return abs of a0:a1 in a0:a1
+.globl fpabs
 fpabs:
     bgez a1, 1f  		# sign_z
 	# negate
@@ -210,115 +223,112 @@ fpabs:
     add a1, a1, t0      # Add carry to upper half
 1: 	ret
 
+# approximation of atan2() where |error| < 0.005
 # Input: a1:a0 = y (S31.32), a3:a2 = x (S31.32)
 # Output: a1:a0 = atan2(y, x) (S31.32)
 .globl fp_atan2
 fp_atan2:
-	addi sp, sp, -16
+	addi sp, sp, -20
   	sw ra, 0(sp)
   	sw s1, 4(sp)
 	sw s2, 8(sp)
   	sw s3, 12(sp)
-
-    # Save signs
-    srai    t0, a1, 31     # t0 = sign_y
-    srai    t1, a3, 31     # t1 = sign_x
+  	sw s4, 16(sp)
 
     # --- Special case: x == 0 ---
-    or      t2, a2, a3
-    bnez    t2, do_div
+    or t2, a2, a3
+    bnez t2, do_div
+
+    # If y == 0 → return 0
+    or t2, a1, a0
+    bnez t2, 1f
+  	li a0, 0
+  	li a1, 0
+  	j atan2done
 
     # If y > 0 → return π/2
     # If y < 0 → return -π/2
-    li      t3, 0x921FB544     # π/2 low - corrected
-    li      t4, 0x00000001     # π/2 high
-    li      t5, 0x6DE04ABC     # -π/2 low
-    li      t6, 0xFFFFFFFE     # -π/2 high
-    bltz    a1, return_neg_pi_2
-    mv      a0, t3
-    mv      a1, t4
-    j atan2done
-return_neg_pi_2:
-    mv      a0, t5
-    mv      a1, t6
-    j atan2done
+1:  bgtz    a1, 2f
+	li      a0, 0x6DE04ABC     # -π/2 low
+    li      a1, 0xFFFFFFFE     # -π/2 high
+    j 		atan2done
+2:  li      a0, 0x921FB544     # π/2 low
+    li      a1, 0x00000001     # π/2 high
+    j 		atan2done
 
 do_div:
-    # Call fixed_div_s31_32(y, x)
-    # Inputs: a1:a0 (y), a3:a2 (x)
-    # Result: a1:a0 = z = y / x
+	mv s3, a1 			# save y high
+	mv s4, a3 			# save x high
+
+    # fpdiv(y, x)
+    # z = y / x
     call    fpdiv
+    # Save z in s1:s2 L:H
+    mv      s1, a0
+    mv      s2, a1
 
-    # Save z in s2:s1
-    mv      s2, a0
-    mv      s1, a1
-
-    # abs(z) - corrected
-    bgez    a1, 1f  	# sign_z
-	# Corrected negate z
-    not a0, a0          # Invert lower 32 bits
-    not a1, a1          # Invert upper 32 bits
-    addi a0, a0, 1      # Add 1 to lower half
-    # Check if there was a carry (a0 became zero after addition)
-    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
-    add a1, a1, t0      # Add carry to upper half
-
-    # Compute 1 - |z| - corrected
-1:  li 	t4, 0x00000000  # 1.0 in S31.32
-    li 	t5, 0x00000001
-    sltu t0, a0, t4       	# Set t0 = 1 if a borrow will occur (a0 < a2)
-    sub a0, t4, a0       	# Subtract lower 32 bits: a0 = a0 - a2
-    sub a1, t5, a1       	# Subtract upper 32 bits
-    sub a1, a1, t0       	# Subtract borrow from upper 32 bits
-
-    # Multiply by 0.273 (S31.32)
-    li      a2, 0x45E353F7  # 0.273 low
-    mv      a3, zero
-    # multiply a1:a0 × a3:a2 → result in a1:a0
-    call    fpmul   # must return a1:a0
-
-    # Add π/4 - corrected
-    li      t2, 0xC90FDAA2     # π/4 low
-    li      t3, 0x00000000     # π/4 high
-    add     a0, a0, t2
-    sltu    t4, a0, t2
-    add     a1, a1, t3
-    add     a1, a1, t4
-
-    # Multiply by original z (s1:s2)
-    mv      a2, s2
-    mv      a3, s1
-    call    fpmul   # a1:a0 = atan(z)
-
-    # Apply correction for quadrant
-    bltz    a3, apply_pi_correction
+    # fabs(z)
+    call fpabs
+    beqz a1, 1f 		# fabs(z) < 1.0
+    # >= 1.0
+    # atan = PIBY2_FLOAT - (z / ((z * z) + 0.28f));
+    mv a0, s1
+    mv a1, s2
+    mv a2, s1
+    mv a3, s2
+    call fpmul 				# z * z
+    li a2, 0x47AE147A 		# 0.28
+	li a3, 0x00000000
+	call fpadd 				# + 0.28
+	mv a2, a0
+	mv a3, a1
+	mv a0, s1
+	mv a1, s2
+	call fpdiv
+	mv a2, a0
+	mv a3, a1
+    li a0, 0x921FB544     	# π/2
+    li a1, 0x00000001
+    call fpsub 				# atan
+    bgez s3, atan2done 		# y >= 0.0
+    li a2, 0x243F6A88 		# π
+	li a3, 0x00000003
+	call fpsub 				# atan - π
     j atan2done
 
-apply_pi_correction:
-    bltz    s1, sub_pi         # z was negative → θ = θ - π
-    # θ = θ + π
-    li      t2, 0x243F6A88 		# corrected
-    li      t3, 0x00000003
-    add     a0, a0, t2
-    sltu    t4, a0, t2
-    add     a1, a1, t3
-    add     a1, a1, t4
-    j atan2done
-
-sub_pi:
-    li      t2, 0x243F6A88	# corrected
-    li      t3, 0x00000003
-    sltu    t4, a0, t2 		# corrected
-    sub     a0, a0, t2
-    sub     a1, a1, t3
-    sub     a1, a1, t4
+    # < 1.0
+    # atan = z / (1.0f + (0.28f * z * z));
+1:	mv a0, s1
+    mv a1, s2
+    mv a2, s1
+    mv a3, s2
+    call fpmul 				# z * z
+    li a2, 0x47AE147A 		# 0.28
+	li a3, 0x00000000
+	call fpmul 				# * 0.28
+	mv a2, zero
+	li a3, 1 				# 1.0
+	call fpadd 				# + 1.0
+	mv a2, a0
+	mv a3, a1
+	mv a0, s1
+    mv a1, s2
+    call fpdiv 				# atan
+    bgez s4, atan2done      # x >= 0.0
+    li a2, 0x243F6A88 		# π
+	li a3, 0x00000003
+    bltz s3, 2f 			# y < 0.0
+	call fpadd 				# atan + π
+	j atan2done
+2:	call fpsub 				# atan - π
 
 atan2done:
   	lw ra, 0(sp)
   	lw s1, 4(sp)
  	lw s2, 8(sp)
   	lw s3, 12(sp)
-  	addi sp, sp, 16
+  	lw s4, 16(sp)
+  	addi sp, sp, 20
     ret
 
 #
@@ -327,6 +337,7 @@ atan2done:
 
 # print fixed point number in hex a0 Lower, a1 Upper
 # preserves a0/a1
+.globl uart_printfphex
 uart_printfphex:
 	addi sp, sp, -16
   	sw ra, 0(sp)
@@ -548,17 +559,17 @@ test_fp:
 	call uart_printfp
 	call uart_printnl
 
-	# atan2(0.1, 1)
-	li a0, 0x1999999A
+	# 0.1 / 1.0028 == 0.099720781 0x00000000_19874D18
+	li a0, 0x19999999
 	li a1, 0
+	li a2, 0x00B78034
+	li a3, 1
+	call fpdiv
 	call uart_printfp
-	call uart_printspc
-	li a0, 0
-	li a1, 1
-	call uart_printfp
-	call uart_printspc
+	call uart_printnl
 
-	li a0, 0x1999999A
+	# result == 0.0997
+	li a0, 0x19999999
 	li a1, 0
 	li a2, 0
 	li a3, 1
@@ -566,8 +577,8 @@ test_fp:
 	call uart_printfphex
 	call uart_printspc
 	call uart_printfp
-	call uart_printspc
 	call uart_printnl
+
 
 1: 	lw ra, 0(sp)
   	lw s1, 4(sp)
