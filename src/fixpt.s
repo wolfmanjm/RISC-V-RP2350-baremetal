@@ -1,19 +1,4 @@
-# attempt to do s31.32 fixed point arithmetic for risc-v
-# with help from chatgpt, which got about 75% - 80% correct
-
-# 32-bit signed integer multiplication returning 64-bit product
-#   arguments:
-#       a0: x
-#       a1: y
-#   return:
-#       a0: x*y lower 32 bits
-#       a1: x*y upper 32 bits
-#
-mul_signed_full:
-    mulh    t0, a1, a0
-    mul     a0, a1, a0
-    mv      a1, t0
-    ret
+# This does S31.32 fixed point arithmetic for risc-v
 
 # Inputs:
 #   a0 = a_lo

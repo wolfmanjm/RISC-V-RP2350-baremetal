@@ -41,10 +41,18 @@ Currently we have the following peripherals implemented...
 Also a test in PWM is one that can be used to test an ESC and uses the encoder
 to increase or decrease the duty cycle, and displays it on the TFT display.
 
-I am particularly happy about the multicore as this is modelled after the
-pico-sdk but far less complicated. You simply pass in the address where you
-want core2 to run, the stack for core2 and call the routine. I have not
-tested if interrupts work when running on the second core yet.
+There is also a S31.32 fixed point library that handles
+
+* add
+* sub
+* div
+* mul
+* abs
+* neg
+* atan2
+
+plus uart print versions to print out fixed point numbers as decimal.
+
 
 In general this decomplicates a lot of what the pico-sdk does, at the expense
 of no error checking and only using a simplified set of functions.
