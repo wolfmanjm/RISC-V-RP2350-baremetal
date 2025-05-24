@@ -56,7 +56,7 @@ plus uart print versions to print out fixed point numbers as decimal.
 Double word math:
 
 * div32s and div32u 64bit / 32bit divides
-* mul64_div (a*b)/c where the intermediate a*b is kept as 64 bit with 32 but result
+* mul64_div (a * b)/c where the intermediate a * b is kept as 64 bit with 32 bit result
 * dadd
 * dsub
 * dabs
