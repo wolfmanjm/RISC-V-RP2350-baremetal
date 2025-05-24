@@ -5,12 +5,14 @@
 # Returns:
 #   a0 = quotient
 # Note a1 < a2 otherwise we get overflow (a0 = 0xFFFFFFFF)
+# This is an unsigned divide
 #
 # This algorithm is taken from Hacker's Delight 2nd Edition divlu2
 # https://github.com/hcs0/Hackers-Delight/tree/master
 # based on Knuths algorithms
 #
-div64:
+.globl div64u
+div64u:
 	addi sp, sp, -20
   	sw ra, 0(sp)
   	sw s1, 4(sp)
@@ -18,30 +20,22 @@ div64:
   	sw s3, 12(sp)
   	sw s4, 16(sp)
 
-  	# save if we need to negate result
-	# if a1<0 xor a2<0 then negate quotient
-	bexti t0, a1, 31
-	bexti t1, a2, 31
-	xor a3, t0, t1
-
    	bnez a2, 1f
   	# divide by zero
   	mv a0, zero
   	j div64_exit
 
-  	# make dividend absolute
-1:  call fpabs
+    # If high word is zero, a simple 32-bit division is enough
+    bnez a1, 1f
+    divu a0, a0, a2
+    j div64_exit
 
- 	# make divisor absolute
- 	bgez a2, 2f
- 	neg a2, a2
-
-2:	blt a1, a2, 3f
+1:	blt a1, a2, 2f
 	# overflow
 	li a0, 0xFFFFFFFF
 	j div64_exit
 
-3:	clz t0, a2 			# s
+2:	clz t0, a2 			# s
 	sll a2, a2, t0 		# normalize divisor
 	srl t1, a2, 16 		# vn1
 	li t2, 0xFFFF
@@ -97,11 +91,6 @@ div64:
 9:	mul a0, t6, s2		# q1 * b
 	add a0, a0, s3		# result: quotient = q1 * b + q0
 
-div64_done:
-    beqz a3, div64_exit
-	# negate the quotient in a0
-    neg a0, a0
-
 div64_exit:
   	lw ra, 0(sp)
   	lw s1, 4(sp)
@@ -111,20 +100,73 @@ div64_exit:
   	addi sp, sp, 20
     ret
 
-.globl test_div
-test_div:
+# signed divide 64 / 32 with 32 result
+# a1:a0 / a2 --> a0
+#
+.globl div64s
+div64s:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+  	# save if we need to negate result
+	# if a1<0 xor a2<0 then negate quotient
+	bexti t0, a1, 31
+	bexti t1, a2, 31
+	xor a3, t0, t1
+  	# make dividend absolute
+	call fpabs
+ 	# make divisor absolute
+ 	bgez a2, 1f
+ 	neg a2, a2
+
+ 	# call unsigned divide
+1:	call div64u
+
+	# check if we need to negate result
+    beqz a3, 2f
+	# negate the quotient in a0
+    neg a0, a0
+
+2: 	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
+# multiply a0 by a1 then divide the resulting 64bit by a2 to get a 32 bit result
+# a0 * a1 / a2 with intermediate 64 bit result
+.globl mul64_div
+mul64_div:
+  	# do 32x32 -> 64 multiply
+    mul a0, a1, a0
+    mulh a1, a1, a0
+    j div64s
+
+.globl test_div64
+test_div64:
 	addi sp, sp, -8
   	sw ra, 0(sp)
   	sw s1, 4(sp)
 
 	call uart_init
-
-	li a0, 16
-	li a1, 0
-	li a2, 2
-	call div64
+	# test divide
+	li a0, 0x00010000
+	li a1, 65535
+	li a2, 65536
+	call div64s
 	call uart_print8hex
+	call uart_printspc
+	call uart_printn
 	call uart_printnl
+
+	# test multiply
+	li a0, 65536
+	li a1, 65536
+	li a2, 65536
+	call mul64_div
+	call uart_print8hex
+	call uart_printspc
+	call uart_printn
+	call uart_printnl
+
 
 1: 	lw ra, 0(sp)
   	lw s1, 4(sp)

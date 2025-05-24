@@ -18,7 +18,7 @@ main:
 	# call i2c_scan
 	# call test_imu
 	# call test_fp
-	call test_div
+	call test_div64
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)
