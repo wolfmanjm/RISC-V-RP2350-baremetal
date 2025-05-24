@@ -114,7 +114,7 @@ div64s:
 	bexti t1, a2, 31
 	xor a3, t0, t1
   	# make dividend absolute
-	call fpabs
+	call dabs
  	# make divisor absolute
  	bgez a2, 1f
  	neg a2, a2
@@ -136,20 +136,20 @@ div64s:
 .globl mul64_div
 mul64_div:
   	# do 32x32 -> 64 multiply
-    mul a0, a1, a0
+    mul t0, a1, a0
     mulh a1, a1, a0
+    mv a0, t0
     j div64s
 
 .globl test_div64
 test_div64:
-	addi sp, sp, -8
+	addi sp, sp, -4
   	sw ra, 0(sp)
-  	sw s1, 4(sp)
 
 	call uart_init
 	# test divide
 	li a0, 0x00010000
-	li a1, 65535
+	li a1, 32767
 	li a2, 65536
 	call div64s
 	call uart_print8hex
@@ -167,8 +167,6 @@ test_div64:
 	call uart_printn
 	call uart_printnl
 
-
-1: 	lw ra, 0(sp)
-  	lw s1, 4(sp)
-  	addi sp, sp, 8
+ 	lw ra, 0(sp)
+  	addi sp, sp, 4
 	ret

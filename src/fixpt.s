@@ -165,6 +165,8 @@ div_exit:
 # Output:
 #   a0 = result low 32 bits
 #   a1 = result high 32 bits
+.globl dadd
+dadd:
 .globl fpadd
 fpadd:
     add     a0, a0, a2          # low part
@@ -181,6 +183,8 @@ fpadd:
 # Output:
 #   a0 = result low 32 bits
 #   a1 = result high 32 bits
+.globl dsub
+dsub:
 .globl fpsub
 fpsub:
     sltu t0, a0, a2       # Set t0 = 1 if a borrow will occur (a0 < a2)
@@ -190,6 +194,8 @@ fpsub:
     ret
 
 # negate fp number in a0/a1
+.globl dneg
+dneg:
 .globl fpneg
 fpneg:
     not a0, a0          # Invert lower 32 bits
@@ -201,6 +207,8 @@ fpneg:
     ret
 
 # return abs of a0:a1 in a0:a1
+.globl dabs
+dabs:
 .globl fpabs
 fpabs:
     bgez a1, 1f  		# sign_z

@@ -43,13 +43,13 @@ to increase or decrease the duty cycle, and displays it on the TFT display.
 
 There is also a S31.32 fixed point library that handles
 
-* add
-* sub
-* div
-* mul
-* abs
-* neg
-* atan2
+* fpadd
+* fpsub
+* fpdiv
+* fpmul
+* fpabs
+* fpneg
+* fp_atan2
 
 plus uart print versions to print out fixed point numbers as decimal.
 
@@ -57,7 +57,10 @@ Double word math:
 
 * div32s and div32u 64bit / 32bit divides
 * mul64_div (a*b)/c where the intermediate a*b is kept as 64 bit with 32 but result
-
+* dadd
+* dsub
+* dabs
+* dneg
 
 
 In general this decomplicates a lot of what the pico-sdk does, at the expense

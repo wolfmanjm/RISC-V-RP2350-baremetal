@@ -260,33 +260,53 @@ uart_print2hex:
 # print hex word in a0
 .globl uart_print8hex
 uart_print8hex:
-	pushra
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+  	sw a1, 8(sp)
+
 	la a1, numstr
 	call parse_8h
 	la a0, numstr
 	call uart_puts
-	popra
+
+  	lw ra, 0(sp)
+  	lw a0, 4(sp)
+  	lw a1, 8(sp)
+  	addi sp, sp, 12
 	ret
 
 # print number in a0
 .globl uart_printn
 uart_printn:
-	pushra
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+  	sw a1, 8(sp)
 	la a1, numstr
 	call parse_n
 	la a0, numstr
 	call uart_puts
-	popra
+ 	lw ra, 0(sp)
+  	lw a0, 4(sp)
+  	lw a1, 8(sp)
+  	addi sp, sp, 12
 	ret
 
 .globl uart_printun
 uart_printun:
-	pushra
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+  	sw a1, 8(sp)
 	la a1, numstr
 	call parse_un
 	la a0, numstr
 	call uart_puts
-	popra
+ 	lw ra, 0(sp)
+  	lw a0, 4(sp)
+  	lw a1, 8(sp)
+  	addi sp, sp, 12
 	ret
 
 .globl uart_printnl
