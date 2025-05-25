@@ -1,4 +1,17 @@
 .section .text
+# return abs of a0:a1 in a0:a1
+dabs:
+    bgez a1, 1f  		# sign_z
+	# negate
+    not a0, a0          # Invert lower 32 bits
+    not a1, a1          # Invert upper 32 bits
+    addi a0, a0, 1      # Add 1 to lower half
+    # Check if there was a carry (a0 became zero after addition)
+    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
+    add a1, a1, t0      # Add carry to upper half
+1: 	ret
+
+
 # Inputs:
 #   a1:a0 = 64 bit dividend (hi:lo)
 #   a2 = 32 bit divisor
@@ -22,7 +35,7 @@ div64u:
 
    	bnez a2, 1f
   	# divide by zero
-  	mv a0, zero
+  	li a0, 0xFFFFFFFF
   	j div64_exit
 
     # If high word is zero, a simple 32-bit division is enough
@@ -30,7 +43,7 @@ div64u:
     divu a0, a0, a2
     j div64_exit
 
-1:	blt a1, a2, 2f
+1:	bltu a1, a2, 2f
 	# overflow
 	li a0, 0xFFFFFFFF
 	j div64_exit
@@ -60,32 +73,32 @@ div64u:
 	sub s1, t3, s1		# rhat first quotient digit
 
 	li s2, 65536		# again1:
-4:	bge t6, s2, 5f		# q1 >= 65536
+4:	bgeu t6, s2, 5f		# q1 >= 65536
 	mul s3, t6, t2		# q1 * vn0
 	mul s4, s1, s2		# 65536 * rhat
 	add s4, s4, t5		#  + un1
-	bgt s3, s4, 5f		#   >
+	bgtu s3, s4, 5f		#   >
 	j 6f
 5:  addi t6, t6, -1		# q1 = q1 - 1
 	add s1, s1, t1		# rhat = rhat + vn1
-	blt s1, s2, 4b		# if rhat < 65536 goto again1
+	bltu s1, s2, 4b		# if rhat < 65536 goto again1
 6:	mul t3, t3, s2		# un32 * 65536
 	mul s4, t6, a2		# q1 * v
 	add t3, t3, t5		#  + un1
 	sub t3, t3, s4		# un21 = ((un32 * b) + un1) - (q1 * v)
-	div s3, t3, t1		# q0 = un21 / vn1 compute the second quotient
+	divu s3, t3, t1		# q0 = un21 / vn1 compute the second quotient
 	mul s1, s3, t1		# q0 * vn1
 	sub s1, t3, s1		# rhat = un21 - (q0 * vn1)
 
-7:	bge s3, s2, 8f		# again2: q0 >= 65536
+7:	bgeu s3, s2, 8f		# again2: q0 >= 65536
 	mul s4, s3, t2		# q0 * vn0
 	mul a1, s1, s2		# 65536 * rhat
 	add a1, a1, t4		#  + un0
-	bgt s4, a1, 8f		#   >
+	bgtu s4, a1, 8f		#   >
 	j 9f
 8:	addi s3, s3, -1		# q0 = q0 - 1
 	add s1, s1, t1		# rhat = rhat + vn1
-	blt s1, s2, 7b		# if (rhat < 65536) goto again2
+	bltu s1, s2, 7b		# if (rhat < 65536) goto again2
 	# r = (un21 * b + un0 - q0 * v) >> s; if remainder is wanted
 
 9:	mul a0, t6, s2		# q1 * b
@@ -141,6 +154,7 @@ mul64_div:
     mv a0, t0
     j div64s
 
+.if 0
 .globl test_div64
 test_div64:
 	addi sp, sp, -4
@@ -170,3 +184,4 @@ test_div64:
  	lw ra, 0(sp)
   	addi sp, sp, 4
 	ret
+.endif

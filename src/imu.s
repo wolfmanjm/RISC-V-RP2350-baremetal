@@ -398,6 +398,7 @@ test_imu:
   	addi sp, sp, 12
 	ret
 
+# Acc_angle = atan2(AcY, -AcX) * 57.2958;
 
 .section .data
 msg1: .asciz "IMU Test\nWho am i: "
