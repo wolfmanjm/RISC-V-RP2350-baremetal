@@ -443,8 +443,7 @@ test_uart:
     call hex4_2str
     la a0, numstr
     call uart_puts
-    li a0, 10
-    call uart_putc
+    call uart_printnl
 
     la a1, numstr
     li a0, 0xFEDCBA98
@@ -464,9 +463,17 @@ test_uart:
 
     li a0, 3
     call uart_printn
-
+    call uart_printspc
     li a0, -3
     call uart_printn
+    call uart_printnl
+
+1:  li a0, '>'
+    call uart_putc
+    call uart_getint
+    call uart_printn
+    call uart_printnl
+    j 1b
 
     popra
     ret
