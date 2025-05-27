@@ -163,11 +163,11 @@ uart_gets:
 	popra
 	ret
 
-.globl parse_un
+.globl uint2str
 # a0 number to parse, a1 destination address for string
 # terminates string with 0
 # returns address of next character in a1
-parse_un:
+uint2str:
 	mv t0, a0
 	li t2, 10
 	la t3, tmpstr
@@ -188,25 +188,25 @@ parse_un:
 	mv a1, t0
 	ret
 
-.globl parse_n
-parse_n:
+.globl int2str
+int2str:
 	bltz a0, 1f
-	j parse_un
+	j uint2str
 	# handle negative case
 1:	pushra
 	neg a0, a0
 	li t0, '-'
 	sb t0, 0(a1)
 	addi a1, a1, 1
-	call parse_un
+	call uint2str
 2:	popra
 	ret
 
-.globl parse_1h
+.globl hex1_2str
 # a0 has nibble to parse, a1 has address to put the string
 # terminates string with 0
 # on return a1 points to next character
-parse_1h:
+hex1_2str:
 	addi t0, a0, 0x30
 	li t1, 0x39
 	ble t0, t1, 1f
@@ -216,50 +216,50 @@ parse_1h:
 	sb zero, 0(a1)
 	ret
 
-.globl parse_2h
+.globl hex2_2str
 # a0 has byte to parse, a1 has address to put the string
 # terminates string with 0
 # on return a1 points to next character
-parse_2h:
+hex2_2str:
 	pushra
 	srli t0, a0, 4
 	andi t2, a0, 0x0F
 	mv a0, t0
-	call parse_1h
+	call hex1_2str
 	mv a0, t2
-	call parse_1h
+	call hex1_2str
 	popra
 	ret
 
-.globl parse_4h
+.globl hex4_2str
 # a0 has halfword to parse, a1 has address to put the string
 # terminates string with 0
 # on return a1 points to next character
-parse_4h:
+hex4_2str:
 	pushra
 	andi t3, a0, 0xFF
 	srli a0, a0, 8
 	andi a0, a0, 0xFF
-	call parse_2h
+	call hex2_2str
 	mv a0, t3
-	call parse_2h
+	call hex2_2str
 	popra
 	ret
 
-.globl parse_8h
+.globl hex8_2str
 # a0 has word to parse, a1 has address to put the string
 # terminates string with 0
 # on return a1 points to next character
-parse_8h:
+hex8_2str:
 	addi sp, sp, -8
   	sw ra, 0(sp)
   	sw s1, 4(sp)
 
 	mv s1, a0
 	srli a0, a0, 16
-	call parse_4h
+	call hex4_2str
 	mv a0, s1
-	call parse_4h
+	call hex4_2str
 
  	lw ra, 0(sp)
   	lw s1, 4(sp)
@@ -271,7 +271,7 @@ parse_8h:
 uart_print2hex:
 	pushra
 	la a1, numstr
-	call parse_2h
+	call hex2_2str
 	la a0, numstr
 	call uart_puts
 	popra
@@ -286,7 +286,7 @@ uart_print8hex:
   	sw a1, 8(sp)
 
 	la a1, numstr
-	call parse_8h
+	call hex8_2str
 	la a0, numstr
 	call uart_puts
 
@@ -304,7 +304,7 @@ uart_printn:
   	sw a0, 4(sp)
   	sw a1, 8(sp)
 	la a1, numstr
-	call parse_n
+	call int2str
 	la a0, numstr
 	call uart_puts
  	lw ra, 0(sp)
@@ -320,7 +320,7 @@ uart_printun:
   	sw a0, 4(sp)
   	sw a1, 8(sp)
 	la a1, numstr
-	call parse_un
+	call uint2str
 	la a0, numstr
 	call uart_puts
  	lw ra, 0(sp)
@@ -361,6 +361,62 @@ uart_printspc:
   	addi sp, sp, 12
   	ret
 
+# convert the ihteger in string at a0, into an integer in a0
+# only handles absolute so strip preceding - and negate after
+.globl str2int
+str2int:
+	addi sp, sp, -8
+  	sw ra, 0(sp)
+  	sw s0, 4(sp)
+  	# inialize
+    li s0, 0 			# int = 0
+
+1: 	lb t0, 0(a0)
+	beqz t0, 4f
+	addi a0, a0, 1
+    # Convert ASCII to digit
+	li t1, '0'
+    sub t1, t0, t1    # t1 = digit (char - '0')
+    li t0, 10
+	mul s0, s0, t0
+    add s0, s0, t1
+    j 1b
+
+4:	mv a0, s0
+ 	lw ra, 0(sp)
+  	lw s0, 4(sp)
+  	addi sp, sp, 8
+    ret
+
+# reads an integer from uart, handles negative numbers by skipping the -
+# and negating at end if needed
+.globl uart_getint
+uart_getint:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+1:	la a0, tmpstr
+  	call uart_gets		# read line into tmpstr
+  	bnez a0, 2f
+  	li a0, 0 			# empty string
+  	j 4f
+2:	la a0, tmpstr
+	lb t0, 0(a0)
+	li t1, '-'
+	bne t0, t1, 3f
+	addi a0, a0, 1
+3:	call str2int
+	# check if it was negative
+	la t0, tmpstr
+	lb t0, 0(t0)
+	li t1, '-'
+	bne t0, t1, 4f
+	neg a0, a0
+4: 	lw ra, 0(sp)
+  	addi sp, sp, 4
+  	ret
+
+
 .globl test_uart
 test_uart:
 	pushra
@@ -370,7 +426,7 @@ test_uart:
 
     li a0, 1234567890
     la a1, numstr
-    call parse_n
+    call int2str
     la a0, numstr
     call uart_puts
     li a0, 10
@@ -378,13 +434,13 @@ test_uart:
 
     la a1, numstr
     li a0, 0x1234
-    call parse_4h
+    call hex4_2str
     li a0, 0x5678
-    call parse_4h
+    call hex4_2str
     li a0, 0x9ABC
-    call parse_4h
+    call hex4_2str
     li a0, 0xDEF0
-    call parse_4h
+    call hex4_2str
     la a0, numstr
     call uart_puts
     li a0, 10
@@ -392,7 +448,7 @@ test_uart:
 
     la a1, numstr
     li a0, 0xFEDCBA98
-    call parse_8h
+    call hex8_2str
     la a0, numstr
     call uart_puts
     li a0, 0x20
@@ -400,7 +456,7 @@ test_uart:
 
     la a1, numstr
     li a0, 0x76543210
-    call parse_8h
+    call hex8_2str
     la a0, numstr
     call uart_puts
     li a0, 10

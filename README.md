@@ -41,8 +41,8 @@ Currently we have the following peripherals implemented...
 Also a test in PWM is one that can be used to test an ESC and uses the encoder
 to increase or decrease the duty cycle, and displays it on the TFT display.
 
-The uart library includes routines to parse and/or print integers, and hex
-numbers, and read in characters and lines.
+The uart library includes routines to convert numbers into strings and print integers, and hex
+numbers, and read in characters and lines and numbers.
 
 * uart_putc
 * uart_puts
@@ -54,6 +54,14 @@ numbers, and read in characters and lines.
 * uart_print8hex
 * uart_printnl
 * uart_printspc
+* uart_getint
+* str2int
+* int2str
+* uint2str
+* hex1_2str
+* hex2_2str
+* hex4_2str
+* hex8_2str
 
 There is also a S31.32 fixed point library that handles
 
@@ -64,8 +72,12 @@ There is also a S31.32 fixed point library that handles
 * fpabs
 * fpneg
 * fp_atan2
+* str2fp
+* uart_printfphex
+* uart_printfp
+* uart_getfp
 
-plus uart print versions to prit out fixed point numbers as decimal, and read
+plus uart print versions to print out fixed point numbers as decimal, and read
 in fixed point numbers.
 
 Double word math:

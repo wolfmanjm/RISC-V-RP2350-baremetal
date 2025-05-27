@@ -519,7 +519,7 @@ tft_printn:
 	pushra
 	mv t6, a1
 	la a1, numbuf
-    call parse_n
+    call int2str
 	la a0, numbuf
 	li t0, FONT16_WIDTH
 	mul a1, t6, t0

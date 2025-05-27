@@ -468,10 +468,7 @@ i2c_scan:
 	bnez a0, no_addr
 	# got something at this addr, print the address in hex
 	mv a0, s1
-	la a1, tbuf
-	call parse_2h
-	la a0, tbuf
-	call uart_puts
+	call uart_print2hex
 	li a0, ' '
 	call uart_putc
 	j 2f

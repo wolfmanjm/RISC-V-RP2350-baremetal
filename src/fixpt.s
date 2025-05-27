@@ -329,10 +329,10 @@ atan2done:
   	addi sp, sp, 20
     ret
 
-# parse the floating number in string at a0, into S31.32 a1:a0
+# convert the floating number in string at a0, into S31.32 a1:a0
 # only handles absolute so strip preceding - and negate after
-.globl parse_fp
-parse_fp:
+.globl str2fp
+str2fp:
 	addi sp, sp, -20
   	sw ra, 0(sp)
   	sw s0, 4(sp)
@@ -498,7 +498,7 @@ uart_getfp:
 	li t1, '-'
 	bne t0, t1, 3f
 	addi a0, a0, 1
-3:	call parse_fp
+3:	call str2fp
 	# check if it was negative
 	la t0, tmpstr
 	lb t0, 0(t0)

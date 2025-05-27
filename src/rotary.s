@@ -176,12 +176,8 @@ test_rotary:
     lw t2, 0(t1)
     beq a0, t2, 1b
     sw a0, 0(t1) 		# update lstcnt
-    la a1, numstr
-    call parse_n
-    la a0, numstr
-    call uart_puts
-    li a0, 10
-    call uart_putc
+    call uart_printn
+    call uart_printnl
     j 1b
 
 	popra
