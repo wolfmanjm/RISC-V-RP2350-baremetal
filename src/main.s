@@ -16,8 +16,9 @@ main:
 	# call test_tft
 	# call test_pwm
 	# call i2c_scan
-	call test_imu
+	# call test_imu
 	# call test_fp
+	call test_read_fp
 	# call test_div64
 	ebreak
 

@@ -143,6 +143,26 @@ uart_qc:
 2: 	li a0, 1
 	ret
 
+# read in \n terminated string into address provided by a0, returns number of characters in a0
+.globl uart_gets
+uart_gets:
+	pushra
+	mv t2, a0
+	mv t3, zero
+1:  call uart_getc		# get character into a0
+    mv t0, a0         	# t0 = char
+    # check for newline or end of input
+    li t1, '\n'
+    beq t0, t1, 2f  	# if char == '\n', end input
+    sb t0, 0(t2)
+    addi t2, t2, 1
+    addi t3, t3, 1
+    j 1b
+2:	sb zero, 0(t2)
+	mv a0, t3
+	popra
+	ret
+
 .globl parse_un
 # a0 number to parse, a1 destination address for string
 # terminates string with 0

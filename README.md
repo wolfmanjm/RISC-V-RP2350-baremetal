@@ -41,6 +41,20 @@ Currently we have the following peripherals implemented...
 Also a test in PWM is one that can be used to test an ESC and uses the encoder
 to increase or decrease the duty cycle, and displays it on the TFT display.
 
+The uart library includes routines to parse and/or print integers, and hex
+numbers, and read in characters and lines.
+
+* uart_putc
+* uart_puts
+* uart_getc
+* uart_gets
+* uart_printn
+* uart_printun
+* uart_print2hex
+* uart_print8hex
+* uart_printnl
+* uart_printspc
+
 There is also a S31.32 fixed point library that handles
 
 * fpadd
@@ -51,7 +65,8 @@ There is also a S31.32 fixed point library that handles
 * fpneg
 * fp_atan2
 
-plus uart print versions to print out fixed point numbers as decimal.
+plus uart print versions to prit out fixed point numbers as decimal, and read
+in fixed point numbers.
 
 Double word math:
 
@@ -62,6 +77,8 @@ Double word math:
 * dabs
 * dneg
 
+*NOTE* most of these routines could be called from c as they conform to the
+ ABI in most cases.
 
 In general this decomplicates a lot of what the pico-sdk does, at the expense
 of no error checking and only using a simplified set of functions.

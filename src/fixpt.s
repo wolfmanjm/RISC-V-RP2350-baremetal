@@ -329,9 +329,66 @@ atan2done:
   	addi sp, sp, 20
     ret
 
-#
-# test above
-#
+# parse the floating number in string at a0, into S31.32 a1:a0
+# only handles absolute so strip preceding - and negate after
+.globl parse_fp
+parse_fp:
+	addi sp, sp, -20
+  	sw ra, 0(sp)
+  	sw s0, 4(sp)
+	sw s1, 8(sp)
+  	sw s2, 12(sp)
+  	sw s3, 16(sp)
+  	# inialize
+    li s0, 0 			# int_part = 0
+    li s1, 0          	# frac_part = 0
+    li s2, 1 			# DP divisor
+    li s3, 0          	# flag = 0 (before dot)
+
+1: 	lb t0, 0(a0)
+	beqz t0, 4f
+	addi a0, a0, 1
+
+    # check for period
+    li t1, '.'
+    bne t0, t1, 2f
+    li s3, 1
+    j 1b
+
+    # Convert ASCII to digit
+2:  li t1, '0'
+    sub t1, t0, t1    # t1 = digit (char - '0')
+    li t0, 10
+    # If before period, build int_part
+    beqz s3, 3f
+
+    mul s1, s1, t0
+    add s1, s1, t1
+	# digit divisor
+    mul s2, s2, t0
+    j 1b
+
+3:  mul s0, s0, t0
+    add s0, s0, t1
+    j 1b
+
+4:
+    # s0 = int_part
+    # s1 = frac_part = fp = s0, (s1<<32) / 10^ndigits
+    mv a0, zero
+    beqz s1, 5f 	# if nothing after the dot
+    mv a1, s1
+	mv a2, s2 		# dp divisor
+	call div64u		# return a0 as the fractional part of the FP
+5:	mv a1, s0 		# returns S31.32 Fixed point number
+
+  	lw ra, 0(sp)
+  	lw s0, 4(sp)
+ 	lw s1, 8(sp)
+  	lw s2, 12(sp)
+  	lw s3, 16(sp)
+  	addi sp, sp, 20
+    ret
 
 # print fixed point number in hex a0 Lower, a1 Upper
 # preserves a0/a1
@@ -422,6 +479,35 @@ uart_printfp:
   	lw a1, 12(sp)
   	addi sp, sp, 16
     ret
+
+# reads a fp number from uart, handles negative numbers by skipping the -
+# and negating at end if needed
+.globl uart_getfp
+uart_getfp:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+1:	la a0, tmpstr
+  	call uart_gets		# read line into tmpstr
+  	bnez a0, 2f
+  	li a0, 0 			# empty string
+  	li a1, 0
+  	j 4f
+2:	la a0, tmpstr
+	lb t0, 0(a0)
+	li t1, '-'
+	bne t0, t1, 3f
+	addi a0, a0, 1
+3:	call parse_fp
+	# check if it was negative
+	la t0, tmpstr
+	lb t0, 0(t0)
+	li t1, '-'
+	bne t0, t1, 4f
+	call fpneg
+4: 	lw ra, 0(sp)
+  	addi sp, sp, 4
+  	ret
 
 # macro to create a Fixed point constant params are:
 # integer part fractional part, decimal places (10 == .1, 100 = 0.01, etc)
@@ -583,3 +669,14 @@ test_fp:
   	addi sp, sp, 8
 	ret
 
+.globl test_read_fp
+test_read_fp:
+1:	call uart_getfp
+	call uart_printfphex
+	call uart_printspc
+	call uart_printfp
+	call uart_printnl
+	j 1b
+
+.section .data
+tmpstr: .dcb.b 32
