@@ -4,7 +4,7 @@
 main:
 	# call setup_uart
 	# call toggle_pin
-	call test_uart
+	# call test_uart
 	# call blink_test
 	# call test_alarm
 	# call test_multi_core
@@ -20,6 +20,7 @@ main:
 	# call test_fp
 	# call test_read_fp
 	# call test_div64
+	call test_neopixel
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)

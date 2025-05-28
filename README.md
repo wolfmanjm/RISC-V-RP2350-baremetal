@@ -1,10 +1,10 @@
-This is a collection of bare metal, assembly code only access to the risc-v on
-the RP2350 (pico2 or other)
+This is a collection of bare metal, hand coded assembly for the risc-v on
+the RP2350 (pico2 or other).
 
 This does not use any c code or the pico-sdk, although most of the registers
 accesses are gleaned from looking at how the pico-sdk accesses low level H/W.
 
-The code is in the src directory one header is in the top level directory
+The code is in the src directory, one header is in the top level directory
 (the interrupt numbers).
 
 The build is done using Rake and by looking at the Rakefile you can see how to
@@ -37,6 +37,7 @@ Currently we have the following peripherals implemented...
 * rotary encoder
 * some blink examples
 * gpio interrupts with a test that uses a rotary encoder
+* bitbanged neopixel
 
 Also a test in PWM is one that can be used to test an ESC and uses the encoder
 to increase or decrease the duty cycle, and displays it on the TFT display.
@@ -63,7 +64,7 @@ numbers, and read in characters and lines and numbers.
 * hex4_2str
 * hex8_2str
 
-There is also a S31.32 fixed point library that handles
+There is also a S31.32 fixed point library that handles:
 
 * fpadd
 * fpsub
@@ -96,5 +97,5 @@ In general this decomplicates a lot of what the pico-sdk does, at the expense
 of no error checking and only using a simplified set of functions.
 
 
-Some more info here http://blog.wolfman.com/articles/2025/3/23/bare-metal-gpio-twiddling-for-risc-v-on-rpi-pico2
+Some more info here http://blog.wolfman.com/articles/2025/5/19/bare-metal-gpio-twiddling-for-risc-v-on-rpi-pico2
 
