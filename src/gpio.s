@@ -117,6 +117,7 @@ gpio_set_pullup:
 .globl gpio_set_drive
 gpio_set_drive:
 	li t0, PADS_BANK0_BASE
+	sh2add t0, a0, t0
 	lw t1, _GPIO(t0)
 	li t2, ~(m_GPIO_DRIVE)
 	and t1, t1, t2
