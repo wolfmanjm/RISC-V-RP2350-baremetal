@@ -69,6 +69,8 @@
 	.equ ADC_BASE_PIN, 40
 .endif
 
+.section .text
+
 # initialize ADC
 .globl adc_init
 adc_init:
