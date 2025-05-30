@@ -136,6 +136,7 @@ adc_enable_temp:
 	ret
 
 # read adc when ready return raw value in a0
+.globl adc_read
 adc_read:
 	li t0, ADC_BASE|WRITE_SET
 	li t1, b_CS_START_ONCE
@@ -150,7 +151,9 @@ adc_read:
 	ret
 
 # 12-bit conversion, assume max value == ADC_VREF == 3.3 V
-# const float conversion_factor = 3.3f / (1 << 12);
+# conversion_factor = 3.3f / (1 << 12);
+# raw adc in a0, return normalized in a0
+.globl adc_normalize
 adc_normalize:
 	addi sp, sp, -4
   	sw ra, 0(sp)

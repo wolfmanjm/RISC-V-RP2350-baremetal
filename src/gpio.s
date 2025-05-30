@@ -1,14 +1,19 @@
 # setup generic GPIO pins as input or output etc
+
+# NOTE all calls that take a0 as the pin number should return where possible
+# the same pin in a0
+
 .section .text
 
-.equ CELL, 4
 .macro pushra
-  	addi sp, sp, -CELL
+  	addi sp, sp, -8
   	sw ra, 0(sp)
+  	sw s1, 4(sp)
 .endm
 .macro popra
   	lw ra, 0(sp)
-  	addi sp, sp, CELL
+  	lw s1, 4(sp)
+  	addi sp, sp, 8
 .endm
 
 .equ SYSCTL_BASE,    0x40000000
@@ -152,24 +157,24 @@ gpio_set_drive:
 .globl pin_output
 pin_output:
 	pushra
-	mv t6, a0
+	mv s1, a0
 
     # gpio_init()
     li t0, SIO_BASE
-    bset t1, zero, t6
+    bset t1, zero, s1
     sw t1, _GPIO_OE_CLR(t0)         # Set GPIO as input
 	sw t1, _GPIO_OUT_CLR(t0) 		# set LOW
 
     # Configure FUNC
-    mv a0, t6
+    mv a0, s1
 	li a1, GPIO_FUNC_SIO
 	call gpio_set_function
 
     li t0, SIO_BASE
-    bset t1, zero, t6
+    bset t1, zero, s1
     sw t1, _GPIO_OE_SET(t0)         # Set GPIO as output
 
-    mv a0, t6
+    mv a0, s1
     li a1, 3	# drive stength 12MA
     call gpio_set_drive
     popra
@@ -179,30 +184,30 @@ pin_output:
 .globl pin_input_pu
 pin_input_pu:
 	pushra
-	mv t6, a0
+	mv s1, a0
 
     # gpio_init()
     li t0, SIO_BASE
-    bset t1, zero, t6
+    bset t1, zero, s1
     sw t1, _GPIO_OE_CLR(t0)	  	# Set GPIO as input
 	sw t1, _GPIO_OUT_CLR(t0) 	# set LOW
     # Configure FUNC
-    mv a0, t6
+    mv a0, s1
     li a1, GPIO_FUNC_SIO
     call gpio_set_function
 
 	li t0, SIO_BASE
-    bset t1, zero, t6
+    bset t1, zero, s1
 	sw t1, _GPIO_OE_CLR(t0) 	# set as input again
 
     # clear pulldown
 	li t0, PADS_BANK0_BASE|WRITE_CLR
-  	sh2add t0, t6, t0
+  	sh2add t0, s1, t0
     li t1, b_GPIO_PDE
     sw t1, _GPIO(t0)
     # set pullup
 	li t0, PADS_BANK0_BASE|WRITE_SET
-  	sh2add t0, t6, t0
+  	sh2add t0, s1, t0
     li t1, b_GPIO_PUE
     sw t1, _GPIO(t0)
 
@@ -379,7 +384,7 @@ gpio_enable_interrupt:
 
 	# enable the interrupt in H/W
 	pushra
-	mv t6, a0 			# save pin
+	mv s1, a0 			# save pin
 	# first ack any outstanding IRQ for the given events
 	mv a1, a2 			# events
 	call gpio_ack_irq
@@ -389,7 +394,7 @@ gpio_enable_interrupt:
 	li t0, (IO_BANK0_BASE+_PROC0_INTE0)|WRITE_SET
 	j 4f
 3:	li t0, (IO_BANK0_BASE+_PROC1_INTE0)|WRITE_SET
-4:	mv t1, t6
+4:	mv t1, s1
 	srli t2, t1, 3 			# gpio/8
 	sh2add t2, t2, t0		# register offset for this gpio
 	andi t1, t1, 0b0111		# gpio mod 8
