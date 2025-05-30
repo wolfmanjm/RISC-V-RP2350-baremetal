@@ -74,6 +74,18 @@ gpio_set_function:
 
 	ret
 
+# set or clear (a0) the input enabled bit
+.globl gpio_set_input_enabled
+gpio_set_input_enabled:
+	beqz a1, 1f
+	li t0, PADS_BANK0_BASE|WRITE_SET
+	j 2f
+1:	li t0, PADS_BANK0_BASE|WRITE_CLR
+2:  sh2add t0, a0, t0
+	li t1, b_GPIO_IE
+	sw t1, _GPIO(t0)
+	ret
+
 # set fast (a1=1) or slow (a1=0) slew for pin (a0)
 .globl gpio_set_slew
 gpio_set_slew:
@@ -110,6 +122,16 @@ gpio_set_pullup:
 	li t0, PADS_BANK0_BASE|WRITE_SET
   	sh2add t0, a0, t0
     li t1, b_GPIO_PUE
+    sw t1, _GPIO(t0)
+    ret
+
+# disable pulls for pin (a0)
+.globl gpio_disable_pulls
+gpio_disable_pulls:
+    # clear pullup and pulldown
+	li t0, PADS_BANK0_BASE|WRITE_CLR
+  	sh2add t0, a0, t0
+    li t1, b_GPIO_PDE|b_GPIO_PUE
     sw t1, _GPIO(t0)
     ret
 

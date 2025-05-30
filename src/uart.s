@@ -277,6 +277,17 @@ uart_print2hex:
 	popra
 	ret
 
+# print hex byte in a0
+.globl uart_print4hex
+uart_print4hex:
+	pushra
+	la a1, numstr
+	call hex4_2str
+	la a0, numstr
+	call uart_puts
+	popra
+	ret
+
 # print hex word in a0
 .globl uart_print8hex
 uart_print8hex:

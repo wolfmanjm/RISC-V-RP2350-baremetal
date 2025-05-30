@@ -20,7 +20,8 @@ main:
 	# call test_fp
 	# call test_read_fp
 	# call test_div64
-	call test_neopixel
+	# call test_neopixel
+	call test_adc
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)

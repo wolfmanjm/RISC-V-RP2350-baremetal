@@ -50,6 +50,7 @@ fpmul:
 # Returns:
 #   a1:a0 = quotient (signed S31.32)
 #
+.globl fpdiv
 fpdiv:
 	addi sp, sp, -20
   	sw ra, 0(sp)

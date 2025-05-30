@@ -34,6 +34,7 @@ Currently we have the following peripherals implemented...
 * pwm
 * ili9341
 * i2c
+* ADC
 * rotary encoder
 * some blink examples
 * gpio interrupts with a test that uses a rotary encoder
