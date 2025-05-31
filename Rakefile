@@ -10,6 +10,8 @@ ASSEMBLER = "#{TOOLSDIR}/riscv32-corev-elf-as"
 LINKER = "#{TOOLSDIR}/riscv32-corev-elf-ld"
 OBJDUMP = "#{TOOLSDIR}/riscv32-corev-elf-objdump"
 ASFLAGS = '-g -march=rv32ima_zicsr_zifencei_zba_zbb_zbs_zbkb_zca_zcb_zcmp -mabi=ilp32'
+AR = "#{TOOLSDIR}/riscv32-corev-elf-ar"
+ARFLAGS = 'r'
 
 # comment the following line and uncomment the next line to compile for FLASH
 LDFLAGS = '-g -m elf32lriscv -T linker-ram.ld'
@@ -18,6 +20,8 @@ LDFLAGS = '-g -m elf32lriscv -T linker-ram.ld'
 # Collect all .s files in SRC_DIR
 assembly_files = FileList["#{SRC_DIR}/*.s"]
 object_files = assembly_files.ext('.o').pathmap("#{BUILD_DIR}/%f")
+
+LIB_OBJS = FileList["#{BUILD_DIR}/*.o"]
 
 directory BUILD_DIR
 
@@ -29,12 +33,19 @@ rule '.o' => proc { |t|
   sh "#{ASSEMBLER} #{ASFLAGS} -o #{t.name} #{t.source}"
 end
 
+file "libhal.a" => LIB_OBJS do |t|
+  puts "Creating #{t.name}"
+  sh "#{AR} #{ARFLAGS} #{t.name} #{LIB_OBJS}"
+end
+
 file "#{PROG}.elf" => object_files do |t|
   puts "Linking #{t.name} to RAM"
   sh "#{LINKER} #{LDFLAGS} --print-memory-usage -o #{t.name} #{object_files.join(' ')}"
 end
 
 task default: ["#{PROG}.elf"]
+
+task lib: ["libhal.a"]
 
 task :clean do
   rm_f object_files + ["#{PROG}.elf", "#{PROG}.lst"]

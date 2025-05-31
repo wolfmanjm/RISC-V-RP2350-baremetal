@@ -5,8 +5,9 @@
 .equ RVCSR_MIE_MEIE_BITS,  0x00000800
 .equ RVCSR_MSTATUS_MIE_BITS,  0x00000008
 
-.globl _start
 .section .text
+
+.globl _start
 _start:
 .option push
 .option norelax
@@ -79,7 +80,6 @@ reenter_bootrom:
 1:  li a0, BOOTROM_ENTRY_OFFSET
     jr a0
 
-# goes in .data section
 .section .time_critical
 .p2align 2
 
@@ -252,21 +252,6 @@ __soft_vector_table:
 .word unhandled_ext_irq # isr_irq49
 .word unhandled_ext_irq # isr_irq50
 .word unhandled_ext_irq # isr_irq51
-
-.section .text
-# -----------------------------------------------------------------------------
-.p2align 2 # This special signature must appear within the first 4 kb of
-image_def: # the memory image to be recognised as a valid RISC-V binary.
-# -----------------------------------------------------------------------------
-
-.word 0xffffded3
-.word 0x11010142
-.word 0x00000344
-.word _start
-.word STACK_TOP
-.word 0x000004ff
-.word 0x00000000
-.word 0xab123579
 
 .section .text
 

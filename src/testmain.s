@@ -1,6 +1,7 @@
 .section .text
 
 .globl main
+#.weak main
 main:
 	# call setup_uart
 	# call toggle_pin

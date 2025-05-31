@@ -173,7 +173,7 @@ adc_normalize:
 
 .globl test_adc
 test_adc:
-	#j test_adc_temp
+	# j test_adc_as4
 
 	call adc_init
 	li a0, 26
@@ -216,3 +216,24 @@ test_adc_temp:
 	li a0, 1000
 	call delayms
 	j 1b
+
+test_adc_as4:
+	call adc_init
+	li a0, 26
+	call adc_gpio_init
+	li a0, 0
+	call adc_select_input
+
+1:	call adc_read
+	# we get a value between 0 and 4095 (12 bits) which is 0 to 359 degrees
+	li t1, 36000
+	mul t0, a0, t1
+	li t1, 4096
+	div a0, t0, t1
+	call uart_printn
+	call uart_printnl
+	li a0, 500
+	call delayms
+	j 1b
+
+
