@@ -1,6 +1,11 @@
 # Rakefile
 
-verbose(false)
+verbose(ENV['verbose'] == '1')
+if ENV['flash']
+	FLASHBUILD = true
+else
+	FLASHBUILD = false
+end
 
 SRC_DIR = 'src'
 BUILD_DIR = 'build'
@@ -12,10 +17,13 @@ OBJDUMP = "#{TOOLSDIR}/riscv32-corev-elf-objdump"
 ASFLAGS = '-g -march=rv32ima_zicsr_zifencei_zba_zbb_zbs_zbkb_zca_zcb_zcmp -mabi=ilp32'
 AR = "#{TOOLSDIR}/riscv32-corev-elf-ar"
 ARFLAGS = 'r'
+PICOTOOL = '/home/morris/Stuff/rpipico/picotool/bin/picotool/picotool'
 
-# comment the following line and uncomment the next line to compile for FLASH
-LDFLAGS = '-g -m elf32lriscv -T linker-ram.ld'
-#LDFLAGS = '-g -m elf32lriscv -T linker-flash.ld'
+if FLASHBUILD
+	LDFLAGS = '-g -m elf32lriscv -T linker-flash.ld'
+else
+	LDFLAGS = '-g -m elf32lriscv -T linker-ram.ld'
+end
 
 # Collect all .s files in SRC_DIR
 assembly_files = FileList["#{SRC_DIR}/*.s"]
@@ -39,11 +47,20 @@ file "libhal.a" => LIB_OBJS do |t|
 end
 
 file "#{PROG}.elf" => object_files do |t|
-  puts "Linking #{t.name} to RAM"
+  puts "Linking #{t.name} to #{FLASHBUILD ? 'FLASH' : 'RAM'}"
   sh "#{LINKER} #{LDFLAGS} --print-memory-usage -o #{t.name} #{object_files.join(' ')}"
 end
 
-task default: ["#{PROG}.elf"]
+file "#{PROG}.uf2" => "#{PROG}.elf" do |t|
+  puts "Creating #{t.name}"
+  sh "#{PICOTOOL} uf2 convert #{t.source} #{t.name} --family rp2350-riscv"
+end
+
+if FLASHBUILD
+  task default: ["#{PROG}.uf2"]
+else
+  task default: ["#{PROG}.elf"]
+end
 
 task lib: ["libhal.a"]
 

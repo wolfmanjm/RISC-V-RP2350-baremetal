@@ -8,12 +8,18 @@ MEMORY {
 }
 
 SECTIONS {
-    /* XIP code section, runs from (slow) QSPI
     .text : {
-   		. = ALIGN(4)
+        __logical_binary_start = .;
+        KEEP (*(.binary_info_header))
+        __binary_info_header_end = .;
+        KEEP (*(.embedded_block))
+        __embedded_block_end = .;
+
+   		. = ALIGN(4);
    		_stext = .;
    		*(.text*)
    		_etext = .;
+   		. = ALIGN(4);
     } > FLASH
 
 	/* used by the startup to initialize data */
@@ -21,6 +27,7 @@ SECTIONS {
 
 	/* Initialized data sections goes into RAM */
     .data : {
+        . = ALIGN(4);
 	    _sdata = .;        /* create a global symbol at data start */
 	    *(.time_critical*)
 
@@ -30,6 +37,7 @@ SECTIONS {
 
 	    . = ALIGN(4);
 	    _edata = .;        /* define a global symbol at data end */
+        . = ALIGN(4);
     } > RAM AT> FLASH
 
     .bss : {
@@ -45,4 +53,7 @@ SECTIONS {
     .rodata : {
     	*(.rodata*)
     } > FLASH
+
+    ASSERT( __binary_info_header_end - __logical_binary_start <= 1024, "Binary info must be in first 1024 bytes of the binary")
+    ASSERT( __embedded_block_end - __logical_binary_start <= 4096, "Embedded block must be in first 4096 bytes of the binary")
 }
