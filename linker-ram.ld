@@ -18,9 +18,9 @@ SECTIONS
         KEEP (*(.embedded_block))
         __embedded_block_end = .;
 
+   		. = ALIGN(4);
    	    *(.time_critical*)
 
-   		. = ALIGN(4);
    		_stext = .;
    		*(.text*)
    		_etext = .;
@@ -30,11 +30,13 @@ SECTIONS
 	_sidata = LOADADDR(.data);
 
    .data : {
+        . = ALIGN(4);
 	    _sdata = .;        /* create a global symbol at data start */
    		*(.data)
    		*(.data*)
    		_edata = .;
    		*(.rodata*)
+        . = ALIGN(4);
    	} > ram2
 
    .rodata : { *(.rodata*)} > ram1

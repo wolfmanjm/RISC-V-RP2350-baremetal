@@ -37,6 +37,11 @@ _start:
     csrr a0, mhartid
     bnez a0, reenter_bootrom
 
+.ifdef COPYTORAM
+	# this code copies the text section from FLASH to RAM
+.endif
+
+
     # clear the .bss section
     la a1, _sbss
     la a2, _ebss
@@ -97,17 +102,19 @@ reenter_bootrom:
 
 .section .time_critical
 .p2align 2
-
 # default handlers so we can see what the exception was
+.globl isr_riscv_machine_exception
 isr_riscv_machine_exception:
 	csrr ra, mepc
 	csrr t6, mcause
 	ebreak
 1: j 1b
 
+.globl isr_riscv_machine_soft_irq
 isr_riscv_machine_soft_irq:
 1: j 1b
 
+.globl isr_riscv_machine_timer
 isr_riscv_machine_timer:
 1: j 1b
 
@@ -296,6 +303,10 @@ __soft_vector_table:
 .equ _CLK_SYS_SELECTED, 0x44
 .equ _CLK_PERI_CTRL, 0x48
 .equ _CLK_PERI_DIV, 0x4C
+.equ _CLK_ADC_CTRL, 0x6c
+.equ _CLK_ADC_DIV, 0x70
+
+
 
 .equ _CLK_SYS_RESUS_CTRL, 0x84
 
@@ -515,6 +526,14 @@ _sysinit:
 	li t1, CLOCKS_BASE
 	li t2, 1<<16
 	sw t2, _CLK_PERI_DIV(t1)
+
+	# Enable ADC clock
+	li t1, CLOCKS_BASE | WRITE_SET
+	li t0, 0x800
+	sw t0, _CLK_ADC_CTRL(t1)
+	li t1, CLOCKS_BASE
+	li t2, 1<<16
+	sw t2, _CLK_ADC_DIV(t1)
 
 	# setup the ticks based on clocks
 	call setup_ticks

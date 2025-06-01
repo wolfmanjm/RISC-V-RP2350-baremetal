@@ -38,6 +38,7 @@ rule '.o' => proc { |t|
   File.absolute_path(src)
 } do |t|
   puts "Assembling #{t.source}"
+  # add --defsym COPYTORAM=1 if flash text is to be copied to RAM
   sh "#{ASSEMBLER} #{ASFLAGS} -o #{t.name} #{t.source}"
 end
 

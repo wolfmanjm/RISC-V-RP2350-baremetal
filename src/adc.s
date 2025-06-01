@@ -173,7 +173,8 @@ adc_normalize:
 
 .globl test_adc
 test_adc:
-	# j test_adc_as4
+	call uart_init
+	j test_adc_as4
 
 	call adc_init
 	li a0, 26

@@ -3,10 +3,9 @@
 .globl main
 #.weak main
 main:
-	# call setup_uart
 	# call toggle_pin
 	# call test_uart
-	call blink_test
+	# call blink_test
 	# call test_alarm
 	# call test_multi_core
 	# call test_gpio
@@ -22,7 +21,7 @@ main:
 	# call test_read_fp
 	# call test_div64
 	# call test_neopixel
-	# call test_adc
+	call test_adc
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)
