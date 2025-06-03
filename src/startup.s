@@ -39,6 +39,7 @@ _start:
 
 .ifdef COPYTORAM
 	# this code copies the text section from FLASH to RAM
+	# TODO but we will need a stup in XIP flash to run this first
 .endif
 
 

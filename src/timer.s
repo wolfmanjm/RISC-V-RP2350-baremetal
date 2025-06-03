@@ -90,6 +90,8 @@ clear_alarm:
 	csrc RVCSR_MEIEA_OFFSET, t0
 	ret
 
+.ifdef TESTS
+
 # note for IRQs we need to save all registers we use in here
 alarm_irq:
   	addi sp, sp, -16
@@ -112,6 +114,7 @@ alarm_irq:
 	addi sp, sp, 16
 
 	ret
+
 
 # blink led once every second when alarm fires
 .globl test_alarm
@@ -145,3 +148,4 @@ test_alarm:
 .section .data
 alarm_flag: .word 0
 led_toggle: .word 0
+.endif

@@ -170,14 +170,14 @@ uart_gets:
 uint2str:
 	mv t0, a0
 	li t2, 10
-	la t3, tmpstr
+	la t3, numstr
 1:	remu t1, t0, t2
 	addi t1, t1, 0x30
 	sb t1, 0(t3)
 	addi t3, t3, 1
 	divu t0, t0, t2
 	bnez t0, 1b
-	la t2, tmpstr
+	la t2, numstr
 	mv t0, a1 			# destination address
 2:	addi t3, t3, -1     # copy into num string in reverse order
 	lbu t1, 0(t3)
@@ -406,19 +406,19 @@ uart_getint:
 	addi sp, sp, -4
   	sw ra, 0(sp)
 
-1:	la a0, tmpstr
-  	call uart_gets		# read line into tmpstr
+1:	la a0, numstr
+  	call uart_gets		# read line into numstr
   	bnez a0, 2f
   	li a0, 0 			# empty string
   	j 4f
-2:	la a0, tmpstr
+2:	la a0, numstr
 	lb t0, 0(a0)
 	li t1, '-'
 	bne t0, t1, 3f
 	addi a0, a0, 1
 3:	call str2int
 	# check if it was negative
-	la t0, tmpstr
+	la t0, numstr
 	lb t0, 0(t0)
 	li t1, '-'
 	bne t0, t1, 4f
@@ -427,7 +427,7 @@ uart_getint:
   	addi sp, sp, 4
   	ret
 
-
+.ifdef TESTS
 .globl test_uart
 test_uart:
 	pushra
@@ -491,5 +491,7 @@ test_uart:
 
 .section .data
 msg: .asciz "Hello, RISC-V UART!\n"
-tmpstr: .dcb.b 32
+.endif
+
+.section .data
 numstr: .dcb.b 32

@@ -1,16 +1,4 @@
 .section .text
-# return abs of a0:a1 in a0:a1
-dabs:
-    bgez a1, 1f  		# sign_z
-	# negate
-    not a0, a0          # Invert lower 32 bits
-    not a1, a1          # Invert upper 32 bits
-    addi a0, a0, 1      # Add 1 to lower half
-    # Check if there was a carry (a0 became zero after addition)
-    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
-    add a1, a1, t0      # Add carry to upper half
-1: 	ret
-
 
 # Inputs:
 #   a1:a0 = 64 bit dividend (hi:lo)
@@ -154,7 +142,8 @@ mul64_div:
     mv a0, t0
     j div64s
 
-.if 0
+.ifdef TESTS
+
 .globl test_div64
 test_div64:
 	addi sp, sp, -4

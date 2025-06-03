@@ -11,9 +11,13 @@ The build is done using Rake and by looking at the Rakefile you can see how to
 build the stuff, if Rake is not your thing.
 
 By default the code links into RAM for ease of development using the gdb load
-command, by Editing the LDFLAGS line in the Rakefile you can compile for
-FLASH, and FLASH it using the gdb load command. (I will add uf2 creation at
-some point).
+command, to link for FLASH use `rake flash=1` this will also create a .uf2
+file for ease of flashing using drag and drop.
+
+To create just a library of the drivers without any of the tests do
+`rake mklib` this will create a libhal.a which can be linked with your application
+using `${LINKER} #{LDFLAGS} build/testmain.o -L. -lhal`. I will create an easier way to
+link with different applications, but I suspect most will not be using rake anyway.
 
 I use the assembler in corev-openhw-gcc-ubuntu2204-20240530, but pretty much
 any recent risc-v assembler will work, presuming it supports the Hazard-3
@@ -36,12 +40,15 @@ Currently we have the following peripherals implemented...
 * i2c
 * ADC
 * rotary encoder
-* some blink examples
-* gpio interrupts with a test that uses a rotary encoder
 * bitbanged neopixel
 
-Also a test in PWM is one that can be used to test an ESC and uses the encoder
-to increase or decrease the duty cycle, and displays it on the TFT display.
+There are tests in each source file which can be disabled with
+`rake notests=1`, some of these tests are...
+
+* some blink examples
+* gpio interrupts with a test that uses a rotary encoder
+* a test in PWM that can be used to test an ESC and uses the encoder to
+  increase or decrease the duty cycle, and displays it on the TFT display.
 
 The uart library includes routines to convert numbers into strings and print integers, and hex
 numbers, and read in characters and lines and numbers.

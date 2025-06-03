@@ -464,6 +464,8 @@ gpio_disable_common_irq:
 	popra
 	ret
 
+.ifdef TESTS
+
 .section .text
 
 # Test routines
@@ -569,3 +571,5 @@ led_pins:
 	.word 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 26, 27, 28, 0
 
 irq_count: .word 0
+
+.endif

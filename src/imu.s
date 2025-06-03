@@ -308,6 +308,7 @@ read_mag:
   	addi sp, sp, 4
 	ret
 
+.ifdef TESTS
 .globl test_imu
 test_imu:
 	addi sp, sp, -12
@@ -407,3 +408,4 @@ msg3: .asciz "\nGyro: "
 msg4: .asciz "\nThere was a read error\n"
 msg5: .asciz " Acc: "
 msg6: .asciz " Mag: "
+.endif

@@ -79,7 +79,7 @@ np_send:
   	addi sp, sp, 4
 	ret
 
-# rgb in a0:a1:a2 return constructed 24 bit RGB in a0
+# rgb in a0:a1:a2 return constructed 24 bit RGB or GRB in a0
 np_setrgb:
 .if NEOPIXEL_GRB
 	slli t0, a1, 16 # GRB
@@ -115,6 +115,8 @@ np_reset:
  	lw ra, 0(sp)
   	addi sp, sp, 4
 	ret
+
+.ifdef TESTS
 
 .globl test_neopixel
 test_neopixel:
@@ -186,3 +188,5 @@ test_neopixel:
 .section .data
 .p2align 2
 led_color: .word 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xF0F0F0
+
+.endif

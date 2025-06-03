@@ -488,20 +488,20 @@ uart_getfp:
 	addi sp, sp, -4
   	sw ra, 0(sp)
 
-1:	la a0, tmpstr
-  	call uart_gets		# read line into tmpstr
+1:	la a0, inpstr
+  	call uart_gets		# read line into inpstr
   	bnez a0, 2f
   	li a0, 0 			# empty string
   	li a1, 0
   	j 4f
-2:	la a0, tmpstr
+2:	la a0, inpstr
 	lb t0, 0(a0)
 	li t1, '-'
 	bne t0, t1, 3f
 	addi a0, a0, 1
 3:	call str2fp
 	# check if it was negative
-	la t0, tmpstr
+	la t0, inpstr
 	lb t0, 0(t0)
 	li t1, '-'
 	bne t0, t1, 4f
@@ -509,6 +509,13 @@ uart_getfp:
 4: 	lw ra, 0(sp)
   	addi sp, sp, 4
   	ret
+
+.section .data
+inpstr: .dcb.b 32
+
+
+.ifdef TESTS
+.section .text
 
 # macro to create a Fixed point constant params are:
 # integer part fractional part, decimal places (10 == .1, 100 = 0.01, etc)
@@ -678,6 +685,4 @@ test_read_fp:
 	call uart_printfp
 	call uart_printnl
 	j 1b
-
-.section .data
-tmpstr: .dcb.b 32
+.endif

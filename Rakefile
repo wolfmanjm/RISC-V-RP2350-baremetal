@@ -7,9 +7,16 @@ else
 	FLASHBUILD = false
 end
 
+if ENV['target'].nil?
+	PROG = 'main'
+else
+	PROG = ENV['target']
+end
+
+TESTS = ENV['notests'].nil?
+
 SRC_DIR = 'src'
 BUILD_DIR = 'build'
-PROG = 'main'
 TOOLSDIR = '/home/morris/Stuff/riscv/corev-openhw-gcc-ubuntu2204-20240530/bin'
 ASSEMBLER = "#{TOOLSDIR}/riscv32-corev-elf-as"
 LINKER = "#{TOOLSDIR}/riscv32-corev-elf-ld"
@@ -29,9 +36,32 @@ end
 assembly_files = FileList["#{SRC_DIR}/*.s"]
 object_files = assembly_files.ext('.o').pathmap("#{BUILD_DIR}/%f")
 
-LIB_OBJS = FileList["#{BUILD_DIR}/*.o"]
+# files that should go into the library
+LIBRARY_FILES = [
+"adc",
+"div64",
+"fixpt",
+"gpio",
+"i2c",
+"ili9341",
+"imu",
+"multicore",
+"neopixel",
+"pwm",
+"rotary",
+"spi",
+"startup",
+"ticks",
+"timer",
+"uart",
+]
+
+LIB_OBJS = (LIBRARY_FILES).collect { |d| "#{BUILD_DIR}/#{d}.o" }
 
 directory BUILD_DIR
+
+defines = ""
+defines = "--defsym TESTS=1" if TESTS
 
 rule '.o' => proc { |t|
   src = t.sub(/^#{BUILD_DIR}\//, "#{SRC_DIR}/").sub(/\.o$/, '.s')
@@ -39,12 +69,7 @@ rule '.o' => proc { |t|
 } do |t|
   puts "Assembling #{t.source}"
   # add --defsym COPYTORAM=1 if flash text is to be copied to RAM
-  sh "#{ASSEMBLER} #{ASFLAGS} -o #{t.name} #{t.source}"
-end
-
-file "libhal.a" => LIB_OBJS do |t|
-  puts "Creating #{t.name}"
-  sh "#{AR} #{ARFLAGS} #{t.name} #{LIB_OBJS}"
+  sh "#{ASSEMBLER} #{ASFLAGS} #{defines} -o #{t.name} #{t.source}"
 end
 
 file "#{PROG}.elf" => object_files do |t|
@@ -57,13 +82,24 @@ file "#{PROG}.uf2" => "#{PROG}.elf" do |t|
   sh "#{PICOTOOL} uf2 convert #{t.source} #{t.name} --family rp2350-riscv"
 end
 
-if FLASHBUILD
-  task default: ["#{PROG}.uf2"]
-else
-  task default: ["#{PROG}.elf"]
+file "libhal.a" => LIB_OBJS do |t|
+  puts "Creating #{t.name}"
+  sh "#{AR} #{ARFLAGS} libhal.a #{t.sources.join(' ')}"
 end
 
-task lib: ["libhal.a"]
+if FLASHBUILD
+  task :default => ["#{PROG}.uf2"]
+else
+  task :default => ["#{PROG}.elf"]
+end
+
+task :notests do
+	defines = ""
+end
+
+# to use the libhal.a ...
+# ${LINKER} #{LDFLAGS} build/testmain.o -L. -lhal
+task :mklib => [:clean, :notests, "libhal.a"]
 
 task :clean do
   rm_f object_files + ["#{PROG}.elf", "#{PROG}.lst"]

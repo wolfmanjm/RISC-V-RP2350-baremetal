@@ -145,6 +145,8 @@ pwm_set_duty:
 1:	sw t0, _CC(a0)
 	ret
 
+.ifdef TESTS
+
 .globl test_pwm
 test_pwm:
 	addi sp, sp, -12
@@ -269,3 +271,4 @@ test_pwm_esc:
 .p2align 2
 lstcnt: .word 0
 percent: .word 0
+.endif

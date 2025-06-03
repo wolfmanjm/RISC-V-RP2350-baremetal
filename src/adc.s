@@ -171,6 +171,8 @@ adc_normalize:
   	addi sp, sp, 4
 	ret
 
+.ifdef TESTS
+
 .globl test_adc
 test_adc:
 	call uart_init
@@ -238,3 +240,4 @@ test_adc_as4:
 	j 1b
 
 
+.endif
