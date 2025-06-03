@@ -1,11 +1,14 @@
 # - One is indicated by: .8us high, .45us low
 # - Zero is indicated by: .4us high, .85us low
 # 24 bits followed by 50us low, RGB 888
-# high bit first sent as GRB
+# high bit first sent as GRB or RGB depending on equ below
 
 .section .text
 
 .equ NEOPIXEL_PIN, 16
+.equ NEOPIXEL_RGB, 0
+.equ NEOPIXEL_GRB, 1
+
 delay800ns:
 	csrr t1, mcycle		# each cycle is 6.6ns
 	addi t0, t1, 121-17	# 121 cycles is about 800ns
@@ -78,15 +81,20 @@ np_send:
 
 # rgb in a0:a1:a2 return constructed 24 bit RGB in a0
 np_setrgb:
-	slli t0, a1, 16
+.if NEOPIXEL_GRB
+	slli t0, a1, 16 # GRB
 	slli t1, a0, 8
+.else
+	slli t0, a0, 16 # RGB
+	slli t1, a1, 8
+.endif
 	or t0, t0, t1
 	or t0, t0, a2
 	mv a0, t0
 	ret
 
 # a0 r a1 g a2 b
-np_rgb:
+np_send_rgb:
 	addi sp, sp, -4
   	sw ra, 0(sp)
   	call np_setrgb
@@ -115,7 +123,7 @@ test_neopixel:
 	call pin_low
 
 	# select test
-	j 3f
+	j 2f
 
 	# test timing
 1:	call np_one
@@ -126,28 +134,28 @@ test_neopixel:
 2: 	li a0, 255
 	li a1, 0
 	li a2, 0
-	call np_rgb
+	call np_send_rgb
 	call np_reset
 	li a0, 1000
 	call delayms
  	li a0, 0
  	li a1, 255
  	li a2, 0
-	call np_rgb
+	call np_send_rgb
 	call np_reset
 	li a0, 1000
 	call delayms
  	li a0, 0
 	li a1, 0
  	li a2, 255
-	call np_rgb
+	call np_send_rgb
 	call np_reset
 	li a0, 1000
 	call delayms
  	li a0, 255
 	li a1, 255
  	li a2, 255
-	call np_rgb
+	call np_send_rgb
 	call np_reset
 	li a0, 1000
 	call delayms
