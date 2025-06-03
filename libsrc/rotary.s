@@ -158,34 +158,3 @@ rotary_get_count:
 	lw a0, 0(t0)
 	ret
 
-.globl test_rotary
-test_rotary:
-	pushra
-	li a0, 15
-	li a1, 14
-	call rotary_init
-
-	call uart_init       # Initialize UART
-    la a0, msg           # Load address of message
-    call uart_puts       # Print message
-
-1:	wfi
-	la t0, rotary_count
-    lw a0, 0(t0)
-    la t1, lstcnt 		# if changed then print
-    lw t2, 0(t1)
-    beq a0, t2, 1b
-    sw a0, 0(t1) 		# update lstcnt
-    call uart_printn
-    call uart_printnl
-    j 1b
-
-	popra
-	ret
-
-.section .data
-.p2align 2
-lstcnt: .word 0
-numstr: .dcb.b 32
-msg: .asciz "Rotary Encoder test on pins 14, 15\n"
-

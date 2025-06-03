@@ -63,6 +63,7 @@ np_zero:
 	ret
 
 # send 24bits in a0
+.globl np_send
 np_send:
 	addi sp, sp, -4
   	sw ra, 0(sp)
@@ -94,6 +95,7 @@ np_setrgb:
 	ret
 
 # a0 r a1 g a2 b
+.globl np_send_rgb
 np_send_rgb:
 	addi sp, sp, -4
   	sw ra, 0(sp)
@@ -104,6 +106,7 @@ np_send_rgb:
   	addi sp, sp, 4
 	ret
 
+.globl np_reset
 np_reset:
 	addi sp, sp, -4
   	sw ra, 0(sp)
@@ -116,77 +119,13 @@ np_reset:
   	addi sp, sp, 4
 	ret
 
-.ifdef TESTS
-
-.globl test_neopixel
-test_neopixel:
+.globl init_neopixel
+init_neopixel:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
 	li a0, NEOPIXEL_PIN
 	call pin_output
 	call pin_low
-
-	# select test
-	j 2f
-
-	# test timing
-1:	call np_one
-	call np_zero
-	j 1b
-
-# test one rgb
-2: 	li a0, 255
-	li a1, 0
-	li a2, 0
-	call np_send_rgb
-	call np_reset
-	li a0, 1000
-	call delayms
- 	li a0, 0
- 	li a1, 255
- 	li a2, 0
-	call np_send_rgb
-	call np_reset
-	li a0, 1000
-	call delayms
- 	li a0, 0
-	li a1, 0
- 	li a2, 255
-	call np_send_rgb
-	call np_reset
-	li a0, 1000
-	call delayms
- 	li a0, 255
-	li a1, 255
- 	li a2, 255
-	call np_send_rgb
-	call np_reset
-	li a0, 1000
-	call delayms
-	j 2b
-
-# test string of 8 binary count each led
-# color of each led is in the led_color table, the GRB color being in each word for each led
-3:	li t5, 0  # each bit is the state of each led on/off
-4:	li t6, 7
-	# for each led test on/off
-1:	bext t0, t5, t6
-	beqz t0, 2f
-	la t0, led_color
-	sh2add t0, t6, t0
-	lw a0, 0(t0)
-	j 3f
-2:	mv a0, zero
-3:	call np_send
-	addi t6, t6, -1
-	bgez t6, 1b
-	# increment count
-	call np_reset
-	addi t5, t5, 1
-	li a0, 50
-	call delayms
-	j 4b
-
-.section .data
-.p2align 2
-led_color: .word 0xFF0000, 0x00FF00, 0x0000FF, 0xFFFFFF, 0xFFFF00, 0xFF00FF, 0x00FFFF, 0xF0F0F0
-
-.endif
+ 	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret

@@ -4,8 +4,11 @@ the RP2350 (pico2 or other).
 This does not use any c code or the pico-sdk, although most of the registers
 accesses are gleaned from looking at how the pico-sdk accesses low level H/W.
 
-The code is in the src directory, one header is in the top level directory
-(the interrupt numbers).
+The library code is in the libsrc directory, althoug a couple of headers are
+in the top level directory(the interrupt numbers and fonts).
+
+The appcode is in appsrc and you name the app you want to build on the
+commandline eg `rake target=testmain`
 
 The build is done using Rake and by looking at the Rakefile you can see how to
 build the stuff, if Rake is not your thing.
@@ -14,10 +17,6 @@ By default the code links into RAM for ease of development using the gdb load
 command, to link for FLASH use `rake flash=1` this will also create a .uf2
 file for ease of flashing using drag and drop.
 
-To create just a library of the drivers without any of the tests do
-`rake mklib` this will create a libhal.a which can be linked with your application
-using `${LINKER} #{LDFLAGS} build/testmain.o -L. -lhal`. I will create an easier way to
-link with different applications, but I suspect most will not be using rake anyway.
 
 I use the assembler in corev-openhw-gcc-ubuntu2204-20240530, but pretty much
 any recent risc-v assembler will work, presuming it supports the Hazard-3
@@ -42,8 +41,10 @@ Currently we have the following peripherals implemented...
 * rotary encoder
 * bitbanged neopixel
 
-There are tests in each source file which can be disabled with
-`rake notests=1`, some of these tests are...
+There tends to be tests for each library source, however for ease of testing and development the
+test you want to run is in testmain.s and you comment out the ones you do not want to run.
+
+There are tests in the appsrc directory, some of these tests are...
 
 * some blink examples
 * gpio interrupts with a test that uses a rotary encoder

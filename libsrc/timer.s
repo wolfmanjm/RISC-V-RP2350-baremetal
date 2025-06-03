@@ -78,6 +78,7 @@ set_alarm:
 	ret
 
 # a0 is alarm num to clear
+.globl clear_alarm
 clear_alarm:
     # hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
 	li t0, TIMER0_BASE | WRITE_CLR
@@ -90,62 +91,3 @@ clear_alarm:
 	csrc RVCSR_MEIEA_OFFSET, t0
 	ret
 
-.ifdef TESTS
-
-# note for IRQs we need to save all registers we use in here
-alarm_irq:
-  	addi sp, sp, -16
-  	sw ra, 0(sp)
-  	sw a0, 4(sp)
-  	sw t0, 8(sp)
-  	sw t1, 12(sp)
-
-	li a0, 0
-	call clear_alarm
-
-	la t0, alarm_flag
-	li t1, 1
-	sw t1, 0(t0)
-
-    lw ra, 0(sp)
-    lw a0, 4(sp)
-  	lw t0, 8(sp)
-  	lw t1, 12(sp)
-	addi sp, sp, 16
-
-	ret
-
-
-# blink led once every second when alarm fires
-.globl test_alarm
-test_alarm:
-	call blink_init
-
-2:	la t0, alarm_flag
-	sw zero, 0(t0)
-
-	li a0, 0
-	la a1, alarm_irq
-	li a2, 1000000 # 1 second
-	pushra
-	call set_alarm
-	popra
-
-	# wait for alarm
-	la t0, alarm_flag
-1:	lw t1, 0(t0)
-	beqz t1, 1b
-
-	la t1, led_toggle
-	lw t0, 0(t1)
-	addi t0, t0, 1
-	sw t0, 0(t1)
-	andi a0, t0, 1
-	call blink_led
-
-	j 2b
-
-.section .data
-alarm_flag: .word 0
-led_toggle: .word 0
-.endif

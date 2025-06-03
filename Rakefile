@@ -8,14 +8,13 @@ else
 end
 
 if ENV['target'].nil?
-	PROG = 'main'
+	PROG = 'testmain'
 else
 	PROG = ENV['target']
 end
 
-TESTS = ENV['notests'].nil?
-
-SRC_DIR = 'src'
+APP_SRC = 'appsrc'
+LIB_DIR = 'libsrc'
 BUILD_DIR = 'build'
 TOOLSDIR = '/home/morris/Stuff/riscv/corev-openhw-gcc-ubuntu2204-20240530/bin'
 ASSEMBLER = "#{TOOLSDIR}/riscv32-corev-elf-as"
@@ -32,49 +31,31 @@ else
 	LDFLAGS = '-g -m elf32lriscv -T linker-ram.ld'
 end
 
-# Collect all .s files in SRC_DIR
-assembly_files = FileList["#{SRC_DIR}/*.s"]
-object_files = assembly_files.ext('.o').pathmap("#{BUILD_DIR}/%f")
+mkdir_p(BUILD_DIR)
+
+# directory BUILD_DIR
 
 # files that should go into the library
-LIBRARY_FILES = [
-"adc",
-"div64",
-"fixpt",
-"gpio",
-"i2c",
-"ili9341",
-"imu",
-"multicore",
-"neopixel",
-"pwm",
-"rotary",
-"spi",
-"startup",
-"ticks",
-"timer",
-"uart",
-]
-
-LIB_OBJS = (LIBRARY_FILES).collect { |d| "#{BUILD_DIR}/#{d}.o" }
-
-directory BUILD_DIR
+LIBRARY_SRC = FileList["#{LIB_DIR}/*.s"]
+LIBRARY_OBJECTS = LIBRARY_SRC.ext('.o').pathmap("#{BUILD_DIR}/%f")
 
 defines = ""
-defines = "--defsym TESTS=1" if TESTS
 
-rule '.o' => proc { |t|
-  src = t.sub(/^#{BUILD_DIR}\//, "#{SRC_DIR}/").sub(/\.o$/, '.s')
-  File.absolute_path(src)
-} do |t|
-  puts "Assembling #{t.source}"
-  # add --defsym COPYTORAM=1 if flash text is to be copied to RAM
-  sh "#{ASSEMBLER} #{ASFLAGS} #{defines} -o #{t.name} #{t.source}"
+# building the app
+file "#{BUILD_DIR}/#{PROG}.o" => ["#{APP_SRC}/#{PROG}.s"] do |t|
+  puts "Assembling App #{t.source}"
+  src = File.absolute_path(t.source)
+  sh "#{ASSEMBLER} #{ASFLAGS} #{defines} -o #{t.name} #{src}"
 end
 
-file "#{PROG}.elf" => object_files do |t|
+file "libhal.a" => LIBRARY_OBJECTS do |t|
+  puts "Creating #{t.name}"
+  sh "#{AR} #{ARFLAGS} libhal.a #{t.sources.join(' ')}"
+end
+
+file "#{PROG}.elf" => ['libhal.a', "#{BUILD_DIR}/#{PROG}.o"] do |t|
   puts "Linking #{t.name} to #{FLASHBUILD ? 'FLASH' : 'RAM'}"
-  sh "#{LINKER} #{LDFLAGS} --print-memory-usage -o #{t.name} #{object_files.join(' ')}"
+  sh "#{LINKER} #{LDFLAGS} --print-memory-usage -o #{t.name} #{BUILD_DIR}/#{PROG}.o -L. -lhal"
 end
 
 file "#{PROG}.uf2" => "#{PROG}.elf" do |t|
@@ -82,10 +63,6 @@ file "#{PROG}.uf2" => "#{PROG}.elf" do |t|
   sh "#{PICOTOOL} uf2 convert #{t.source} #{t.name} --family rp2350-riscv"
 end
 
-file "libhal.a" => LIB_OBJS do |t|
-  puts "Creating #{t.name}"
-  sh "#{AR} #{ARFLAGS} libhal.a #{t.sources.join(' ')}"
-end
 
 if FLASHBUILD
   task :default => ["#{PROG}.uf2"]
@@ -93,16 +70,10 @@ else
   task :default => ["#{PROG}.elf"]
 end
 
-task :notests do
-	defines = ""
-end
-
-# to use the libhal.a ...
-# ${LINKER} #{LDFLAGS} build/testmain.o -L. -lhal
-task :mklib => [:clean, :notests, "libhal.a"]
+task :mklib => [:clean, "libhal.a"]
 
 task :clean do
-  rm_f object_files + ["#{PROG}.elf", "#{PROG}.lst"]
+  rm_rf ["build", "#{PROG}.elf", "#{PROG}.lst", "libhal.a"]
 end
 
 task :disasm do
@@ -118,3 +89,15 @@ task :gdb do
 	sh "#{TOOLSDIR}/riscv32-corev-elf-gdb -x gdb.cfg #{PROG}.elf"
 	sh "pkill openocd"
 end
+
+# building the library sources, or any .o that is not explicitly called out above
+# however NOTE that the source need to be in the libsrc directory
+rule '.o' => proc { |t|
+  src = t.sub(/^#{BUILD_DIR}\//, "#{LIB_DIR}/").sub(/\.o$/, '.s')
+  File.absolute_path(src)
+} do |t|
+  puts "Assembling #{t.source}"
+  # add --defsym COPYTORAM=1 if flash text is to be copied to RAM
+  sh "#{ASSEMBLER} #{ASFLAGS} #{defines} -o #{t.name} #{t.source}"
+end
+

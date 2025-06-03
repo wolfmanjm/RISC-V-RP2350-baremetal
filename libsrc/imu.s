@@ -121,6 +121,7 @@ mimu_get_regs:
   	ret
 
 # should return 0xD4
+.globl who_am_i
 who_am_i:
 	addi sp, sp, -4
   	sw ra, 0(sp)
@@ -146,6 +147,7 @@ read_temp:
 	ret
 
 # returns a0 = 0 if ok
+.globl gyro_init
 gyro_init:
 	addi sp, sp, -4
   	sw ra, 0(sp)
@@ -181,6 +183,7 @@ gyro_init:
 	ret
 
 # returns gx, gy, gz in a0, a1, a2
+.globl read_gyro
 read_gyro:
 	addi sp, sp, -4
   	sw ra, 0(sp)
@@ -209,6 +212,7 @@ read_gyro:
   	addi sp, sp, 4
 	ret
 
+.globl acc_mag_init
 # returns a0 = 0 if ok
 acc_mag_init:
 	addi sp, sp, -4
@@ -248,6 +252,7 @@ acc_mag_init:
   	addi sp, sp, 4
 	ret
 
+.globl read_acc
 # returns ax, ay, az in a0, a1, a2
 read_acc:
 	addi sp, sp, -4
@@ -277,6 +282,7 @@ read_acc:
   	addi sp, sp, 4
 	ret
 
+.globl read_mag
 # returns mx, my, mz in a0, a1, a2
 read_mag:
 	addi sp, sp, -4
@@ -308,104 +314,3 @@ read_mag:
   	addi sp, sp, 4
 	ret
 
-.ifdef TESTS
-.globl test_imu
-test_imu:
-	addi sp, sp, -12
-  	sw ra, 0(sp)
-  	sw s1, 4(sp)
-  	sw s2, 8(sp)
-
-	call i2c_init
-	call uart_init       # Initialize UART
-
-    la a0, msg1          # Load address of message
-    call uart_puts       # Print message
-
-    call who_am_i
-	call uart_print2hex
-
-    la a0, msg2          # Load address of message
-    call uart_puts       # Print message
-    call read_temp
-	call uart_print2hex
-	call uart_printnl
-
-	call gyro_init
-	bnez a0, 2f
-	call acc_mag_init
-	bnez a0, 2f
-
-	# read gyro, acc, mag until key press
-1:	la a0, msg3
-	call uart_puts
-	call read_gyro
-	mv s1, a1
-	mv s2, a2
-	call uart_printn
-	li a0, ','
-	call uart_putc
-	mv a0, s1
-	call uart_printn
-	li a0, ','
-	call uart_putc
-	mv a0, s2
-	call uart_printn
-
-	la a0, msg5
-	call uart_puts
-	call read_acc
-	mv s1, a1
-	mv s2, a2
-	call uart_printn
-	li a0, ','
-	call uart_putc
-	mv a0, s1
-	call uart_printn
-	li a0, ','
-	call uart_putc
-	mv a0, s2
-	call uart_printn
-
-	la a0, msg6
-	call uart_puts
-	call read_mag
-	mv s1, a1
-	mv s2, a2
-	call uart_printn
-	li a0, ','
-	call uart_putc
-	mv a0, s1
-	call uart_printn
-	li a0, ','
-	call uart_putc
-	mv a0, s2
-	call uart_printn
-
-	# wait a while
-	li a0, 300
-	call delayms
-
-	call uart_qc
-	beqz a0, 1b
-	j 3f
-
-2:	la a0, msg4
-	call uart_puts
-
-3: 	lw ra, 0(sp)
- 	lw s1, 4(sp)
- 	lw s2, 8(sp)
-  	addi sp, sp, 12
-	ret
-
-# Acc_angle = atan2(AcY, -AcX) * 57.2958;
-
-.section .data
-msg1: .asciz "IMU Test\nWho am i: "
-msg2: .asciz "\nTemp: "
-msg3: .asciz "\nGyro: "
-msg4: .asciz "\nThere was a read error\n"
-msg5: .asciz " Acc: "
-msg6: .asciz " Mag: "
-.endif

@@ -112,7 +112,9 @@ INIT_CMD:
 .section .data
 .p2align 2
 spi_data: .dcb.b 4
+.globl fg_color
 fg_color: .word 0xFFFF
+.globl bg_color
 bg_color: .word 0
 
 .section .text
@@ -268,6 +270,7 @@ rgb_565:
 	or a0, t0, t1 		# a0 : RGB565
 	ret
 # a0 has RGB 888, return RGB 565 in a0
+.globl rgb_888_565
 rgb_888_565:
 	li t0, 0xF80000
 	and t0, a0, t0
@@ -566,125 +569,6 @@ tft_clear_line:
 	call ili9341_fillrect
 	popra
 	ret
-
-.globl test_tft
-test_tft:
-	call ili9341_init
-
-	j test_tft_char
-
-1:	li a0, 0
-	call ili9341_clearscreen
-	li a0, 1000
-	call delayms
-
-	li a0, 0xFF0000
-	call rgb_888_565
-	call ili9341_clearscreen
-	li a0, 1000
-	call delayms
-
-	li a0, 0x00FF00
-	call rgb_888_565
-	call ili9341_clearscreen
-	li a0, 1000
-	call delayms
-
-	li a0, 0x0000FF
-	call rgb_888_565
-	call ili9341_clearscreen
-	li a0, 1000
-	call delayms
-
-	li a0, 0xFFFFFF
-	call rgb_888_565
-	mv a4, a0
-
-	li a0, 20
-	li a1, 20+20-1
-	li a2, 20
-	li a3, 20+20-1
-	call ili9341_fillrect
-	li a0, 1000
-	call delayms
-
-	j 1b
-	ret
-
-.globl test_tft_char
-test_tft_char:
-	# call ili9341_init
-
-	li a0, 0
-	call ili9341_clearscreen
-
-	# set color for font
-	li a0, 0xFFFFFF
-	call rgb_888_565
-	la t1, fg_color
-	sh a0, 0(t1)
-	li a0, 0x000000
-	call rgb_888_565
-	la t1, bg_color
-	sh a0, 0(t1)
-
-	# display all characters
-	li s1, ' '	# char
-	li s2, 0 	# x
-	li s3, 20 	# y
-	li s4, 16 	# cnt/line
-
-1:	mv a0, s1
-	mv a1, s2
-	mv a2, s3
-	call tft_putchar
-
-	addi s1, s1, 1
-	li t0, '~'
-	bgt s1, t0, 2f
-	addi s2, s2, FONT16_WIDTH
-	addi s4, s4, -1
-	bnez s4, 1b
-	li s2, 0
-	addi s3, s3, FONT16_HEIGHT
-	li s4, 16
-	j 1b
-
-2:	la a0, hello_string
-	li a1, 0
-	li a2, 0
-	call tft_printstr
-
-	la a0, str2
-	li a1, 0
-	li a2, 10
-	call tft_printstr
-
-	la a0, hello_string
-	call tft_printstr
-	li a0, 2000
-	call delayms
-
-	li s1, 0
-4:	mv a0, s1
-	li a1, 0
-	li a2, 12
-	call tft_printn
-	addi s1, s1, 1
-	li t0, 100
-	bne t0, s1, 5f
-	li a0, 11
-	call tft_clear_line
-5:	li a0, 50
-	call delayms
-	j 4b
-
-3:	j 3b
-	ret
-
-.section .rodata
-hello_string: .asciz "Hello World!"
-str2: .asciz "One Line\nNext line"
 
 .section .bss
 numbuf: .dcb.b 20

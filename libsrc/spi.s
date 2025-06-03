@@ -322,6 +322,7 @@ spi1_write16n:
  	bnez t2, 1b
  	j spi1_drain_fifo
 
+.if 0
 .globl test_spi
 test_spi:
 	pushra
@@ -337,3 +338,4 @@ test_spi:
 .section .data
 outbuf: .ascii "12345"
 inbuf: .dcb.b 32
+.endif

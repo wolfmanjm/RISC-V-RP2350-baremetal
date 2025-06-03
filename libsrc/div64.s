@@ -141,36 +141,3 @@ mul64_div:
     mulh a1, a1, a0
     mv a0, t0
     j div64s
-
-.ifdef TESTS
-
-.globl test_div64
-test_div64:
-	addi sp, sp, -4
-  	sw ra, 0(sp)
-
-	call uart_init
-	# test divide
-	li a0, 0x00010000
-	li a1, 32767
-	li a2, 65536
-	call div64s
-	call uart_print8hex
-	call uart_printspc
-	call uart_printn
-	call uart_printnl
-
-	# test multiply
-	li a0, 65536
-	li a1, 65536
-	li a2, 65536
-	call mul64_div
-	call uart_print8hex
-	call uart_printspc
-	call uart_printn
-	call uart_printnl
-
- 	lw ra, 0(sp)
-  	addi sp, sp, 4
-	ret
-.endif
