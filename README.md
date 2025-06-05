@@ -8,7 +8,7 @@ The library code is in the libsrc directory, althoug a couple of headers are
 in the top level directory(the interrupt numbers and fonts).
 
 The appcode is in appsrc and you name the app you want to build on the
-commandline eg `rake target=testmain`
+commandline eg `rake target=testmain` or `rake target=imu-angle`
 
 The build is done using Rake and by looking at the Rakefile you can see how to
 build the stuff, if Rake is not your thing.

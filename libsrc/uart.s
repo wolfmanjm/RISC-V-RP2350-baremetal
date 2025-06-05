@@ -170,14 +170,14 @@ uart_gets:
 uint2str:
 	mv t0, a0
 	li t2, 10
-	la t3, numstr
+	la t3, tmpstr
 1:	remu t1, t0, t2
 	addi t1, t1, 0x30
 	sb t1, 0(t3)
 	addi t3, t3, 1
 	divu t0, t0, t2
 	bnez t0, 1b
-	la t2, numstr
+	la t2, tmpstr
 	mv t0, a1 			# destination address
 2:	addi t3, t3, -1     # copy into num string in reverse order
 	lbu t1, 0(t3)
@@ -372,7 +372,7 @@ uart_printspc:
   	addi sp, sp, 12
   	ret
 
-# convert the ihteger in string at a0, into an integer in a0
+# convert the integer in string at a0, into an integer in a0
 # only handles absolute so strip preceding - and negate after
 .globl str2int
 str2int:
@@ -387,7 +387,10 @@ str2int:
 	addi a0, a0, 1
     # Convert ASCII to digit
 	li t1, '0'
-    sub t1, t0, t1    # t1 = digit (char - '0')
+    sub t1, t0, t1    	# t1 = digit (char - '0')
+    bltz t1, 4f 		# < 0 so ignore and exit
+    li t0, 9
+    bgt t1, t0, 4f		# > 9 so ignore and exit
     li t0, 10
 	mul s0, s0, t0
     add s0, s0, t1
@@ -429,3 +432,4 @@ uart_getint:
 
 .section .data
 numstr: .dcb.b 32
+tmpstr: .dcb.b 32
