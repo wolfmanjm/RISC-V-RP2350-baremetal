@@ -8,8 +8,51 @@
 # Output:
 #   a0 = result_lo
 #   a1 = result_hi
+# NOTE this only seems to work for unsigned so do on abs and negate if needed
 .globl fpmul
 fpmul:
+	# if either is negative then need to do abs/neg
+	bltz a1, 1f
+	bltz a3, 1f
+	j fpmulu
+
+1:	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw s0, 4(sp)
+	sw s1, 8(sp)
+
+  	# save signs
+ 	mv s1, a1
+  	mv s2, a3
+
+  	call fpabs
+  	mv a4, a0
+  	mv a5, a1
+  	mv a0, a2
+  	mv a1, a3
+  	call fpabs
+  	mv a2, a0
+  	mv a3, a1
+  	mv a0, a4
+  	mv a1, a5
+
+  	call fpmulu
+
+	# if s1<0 xor s2<0 then negate result
+	bexti t0, s1, 31
+	bexti t1, s2, 31
+	xor t0, t0, t1
+    beqz t0, 2f
+    # negate the results
+    call fpneg
+
+2:	lw ra, 0(sp)
+  	lw s0, 4(sp)
+ 	lw s1, 8(sp)
+  	addi sp, sp, 12
+    ret
+
+fpmulu:
 	addi sp, sp, -12
   	sw ra, 0(sp)
   	sw s0, 4(sp)

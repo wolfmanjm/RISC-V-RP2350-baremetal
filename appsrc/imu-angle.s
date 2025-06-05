@@ -1,6 +1,7 @@
 # An app to display the angle of the IMU
 # Acc_angle = atan2(AcY, -AcX) * 57.295800000
 
+.section .text
 .globl main
 main:
 	addi sp, sp, -12

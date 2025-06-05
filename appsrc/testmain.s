@@ -16,10 +16,10 @@ main:
 	# call test_spi
 	# call test_rotary
 	# call test_tft
-	call test_pwm
+	# call test_pwm
 	# call i2c_scan
 	# call test_imu
-	# call test_fp
+	call test_fp
 	# call test_read_fp
 	# call test_div64
 	# call test_neopixel
@@ -148,6 +148,8 @@ test_fp:
 
 	call uart_init
 
+	j test_atan
+
 	FPCONST 1 1234 10000
 	call uart_printfphex
 	call uart_printspc
@@ -275,6 +277,7 @@ test_fp:
 	call uart_printfp
 	call uart_printnl
 
+test_atan:
 	# result == 0.0997
 	li a0, 0x19999999
 	li a1, 0
@@ -286,6 +289,25 @@ test_fp:
 	call uart_printfp
 	call uart_printnl
 
+# Gyro: 45,332,-300 Acc: -880,-532,-124 Mag: 388,286,113
+
+	# convert to Fixed point
+	mv a0, zero
+	li a1, -880		# x
+	call fpneg 		# -x
+	call uart_printfp
+	call uart_printspc
+	mv a2, a0
+	mv a3, a1
+	mv a0, zero
+	li a1, -532		# y
+	call uart_printfp
+	call uart_printspc
+	call fp_atan2
+	call uart_printfphex
+	call uart_printspc
+	call uart_printfp
+	call uart_printnl
 
 1: 	lw ra, 0(sp)
   	lw s1, 4(sp)
@@ -538,7 +560,7 @@ test_tft_char:
 hello_string: .asciz "Hello World!"
 str2: .asciz "One Line\nNext line"
 
-.section text
+.section .text
 #####################################################
 # IMU tests
 
