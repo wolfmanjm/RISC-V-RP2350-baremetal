@@ -460,6 +460,65 @@ uart_printfphex:
   	addi sp, sp, 16
 	ret
 
+# fixed point number in a1:a0 to string in a2
+# returns with a1:a0 intact and next character in buffer in a2
+.globl fp2str
+fp2str:
+	addi sp, sp, -16
+  	sw ra, 0(sp)
+  	sw s1, 4(sp)
+  	sw a0, 8(sp)
+  	sw a1, 12(sp)
+
+    bgez a1, 1f 		# see if negative
+    # negate it and print '-''
+    li t0, '-'		# print -
+    sb t0, 0(a2)
+    addi a2, a2, 1
+    not a0, a0          # Invert lower 32 bits
+    not a1, a1          # Invert upper 32 bits
+    addi a0, a0, 1      # Add 1 to lower half
+    # Check if there was a carry (a0 became zero after addition)
+    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
+    add a1, a1, t0      # Add carry to upper half
+
+    # Print integer part in a1
+1:	mv s1, a0			# save fractional part in s1
+    mv a0, a1
+    mv a1, a2
+    call uint2str	 	# prints integer part unsigned
+    mv a2, a1
+
+    # Print dot
+    li t0, '.'
+    sb t0, 0(a2)
+    addi a2, a2, 1
+
+    # Extract 6 decimal digits from fractional (s1)
+    # Multiply s1 (fraction) by 10^6 and shift >> 32
+    # Result = (s1 * 1000000) >> 32
+    li t3, 1000000
+    mulhu s1, s1, t3
+    # Now s1 contains fractional decimal digits (0..999999)
+    # We'll print 6 digits with leading zeros
+    li t4, 100000
+    li t5, 10
+    li t6, 6            # digit count
+2:  divu t1, s1, t4     # digit = a0 / t4
+    remu s1, s1, t4     # remainder
+    addi t1, t1, '0'
+    sb t1, 0(a2)
+    addi a2, a2, 1
+    divu t4, t4, t5
+    addi t6, t6, -1
+    bnez t6, 2b
+    sb zero, 0(a2)		# nul terminate
+  	lw ra, 0(sp)
+  	lw s1, 4(sp)
+  	lw a0, 8(sp)
+  	lw a1, 12(sp)
+  	addi sp, sp, 16
+    ret
 
 .globl uart_printfp
 # Arguments:
@@ -469,61 +528,52 @@ uart_printfphex:
 #   S31.32 value as signed decimal to uart_putc (with 6 digits after decimal)
 # preserves a0/a1
 uart_printfp:
-	addi sp, sp, -16
+	addi sp, sp, -8
   	sw ra, 0(sp)
-  	sw s1, 4(sp)
-  	sw a0, 8(sp)
-  	sw a1, 12(sp)
-
-    bgez a1, 1f 		# see if negative
-    # negate it and print '-''
-	mv 		s1, a0
-    li      a0, '-'		# print -
-    call    uart_putc
-
-    not a0, s1          # Invert lower 32 bits
-    not a1, a1          # Invert upper 32 bits
-    addi a0, a0, 1      # Add 1 to lower half
-    # Check if there was a carry (a0 became zero after addition)
-    seqz t0, a0         # t0 = 1 if a0 == 0 (i.e., carry occurred)
-    add a1, a1, t0      # Add carry to upper half
-
-    # Print integer part in a1
-1:	mv s1, a0
-    mv a0, a1
-    call uart_printun	 # prints integer part unsigned
-
-    # Print dot
-    li a0, '.'
-    call uart_putc
-    mv a0, s1
-
-    # Extract 6 decimal digits from fractional (a0)
-    # Multiply a0 (fraction) by 10^6 and shift >> 32
-    # Result = (a0 * 1000000) >> 32
-    li      t3, 1000000
-    mulhu   a0, a0, t3
-    # Now a0 contains fractional decimal digits (0..999999)
-    # We'll print 6 digits with leading zeros
-    li      t4, 100000
-    li      t5, 10
-    li      t6, 6           # digit count
-2:  divu    t1, a0, t4      # digit = a0 / t4
-    remu    a0, a0, t4      # remainder
-    mv 		s1, a0
-    addi    a0, t1, '0'
-    call    uart_putc
-    mv 		a0, s1
-    divu    t4, t4, t5
-    addi    t6, t6, -1
-    bnez    t6, 2b
+  	sw a0, 4(sp)
+ 	la a2, fpstr
+ 	call fp2str
+ 	la a0, fpstr
+ 	call uart_puts
 
   	lw ra, 0(sp)
-  	lw s1, 4(sp)
-  	lw a0, 8(sp)
-  	lw a1, 12(sp)
-  	addi sp, sp, 16
+  	lw a0, 4(sp)
+  	addi sp, sp, 8
     ret
+
+# same as above but print to 1DP and round up the rest
+# round up to 1DP + 0.055555555 then truncate
+.globl uart_printfp1
+uart_printfp1:
+	addi sp, sp, -8
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+
+	li a2, 0x0E38E38D
+	li a3, 0x00000000
+	call fpadd
+ 	la a2, fpstr
+ 	call fp2str
+	# find . and truncate 2 characters later
+	li t2, '.'
+	la t0, fpstr
+1:	lb t1, 0(t0)
+	beq t1, t2, 2f
+	beqz t1, 3f
+	addi t0, t0, 1
+	j 1b
+2:	sb zero, 2(t0)
+3:	la a0, fpstr
+	call uart_puts
+
+  	lw ra, 0(sp)
+  	lw a0, 4(sp)
+  	addi sp, sp, 8
+    ret
+
+.section .data
+fpstr: .dcb.b 32
+.section .text
 
 # reads a fp number from uart, handles negative numbers by skipping the -
 # and negating at end if needed

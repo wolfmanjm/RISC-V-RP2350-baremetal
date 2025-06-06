@@ -31,7 +31,7 @@ main:
 	li a2, 0x4BB98C7E
 	li a3, 0x00000039
 	call fpmul			# * 57.2958
-	call uart_printfp
+	call uart_printfp1
 	call uart_printnl
 	li a0, 200
 	call delayms

@@ -19,11 +19,11 @@ main:
 	# call test_pwm
 	# call i2c_scan
 	# call test_imu
-	# call test_fp
+	call test_fp
 	# call test_read_fp
 	# call test_div64
 	# call test_neopixel
-	call test_adc
+	# call test_adc
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)
@@ -147,7 +147,7 @@ test_fp:
 
 	call uart_init
 
-	j test_atan
+	# j test_atan
 
 	FPCONST 1 1234 10000
 	call uart_printfphex
@@ -274,6 +274,37 @@ test_fp:
 	li a3, 1
 	call fpdiv
 	call uart_printfp
+	call uart_printnl
+
+	# test rounding to 1DP
+	# 3.141592 should print as 3.1
+	li a0, 0x243F6A79
+	li a1, 0x00000003
+	call uart_printfp1
+	call uart_printnl
+
+	# 3.444445000 should print as 3.5
+	li a0, 0x71C725C3
+	li a1, 0x00000003
+	call uart_printfp1
+	call uart_printnl
+
+	# 3.145 should print as 3.2
+	li a0, 0x251EB851
+	li a1, 0x00000003
+	call uart_printfp1
+	call uart_printnl
+
+	# 3.445 should print as 3.5
+	li a0, 0x71EB851E
+	li a1, 0x00000003
+	call uart_printfp1
+	call uart_printnl
+
+	# 3.95 should print as 4.0
+	li a0, 0xF3333333
+	li a1, 0x00000003
+	call uart_printfp1
 	call uart_printnl
 
 test_atan:
