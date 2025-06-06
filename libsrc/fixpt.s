@@ -8,7 +8,7 @@
 # Output:
 #   a0 = result_lo
 #   a1 = result_hi
-# NOTE this only seems to work for unsigned so do on abs and negate if needed
+# signed fixed point multiply
 .globl fpmul
 fpmul:
 	# if either is negative then need to do abs/neg
@@ -52,6 +52,7 @@ fpmul:
   	addi sp, sp, 12
     ret
 
+# unsigned fixed point multiply
 fpmulu:
 	addi sp, sp, -12
   	sw ra, 0(sp)
@@ -338,7 +339,7 @@ do_div:
 	call fpsub 				# atan - π
     j atan2done
 
-    # < 1.0
+    # abs(z) < 1.0
     # atan = z / (1.0f + (0.28f * z * z));
 1:	mv a0, s1
     mv a1, s2

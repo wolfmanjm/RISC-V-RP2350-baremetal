@@ -33,7 +33,7 @@ main:
 	call fpmul			# * 57.2958
 	call uart_printfp
 	call uart_printnl
-	li a0, 500
+	li a0, 200
 	call delayms
 	j 1b
 

@@ -289,9 +289,7 @@ test_atan:
 	call uart_printfp
 	call uart_printnl
 
-# Gyro: 45,332,-300 Acc: -880,-532,-124 Mag: 388,286,113
-
-	# convert to Fixed point
+	# test some real data
 	mv a0, zero
 	li a1, -880		# x
 	call fpneg 		# -x
@@ -307,6 +305,11 @@ test_atan:
 	call uart_printfphex
 	call uart_printspc
 	call uart_printfp
+	call uart_printspc
+	li a2, 0x4BB98C7E
+	li a3, 0x00000039
+	call fpmul			# * 57.2958
+	call uart_printfp 	# should be around -31.422368
 	call uart_printnl
 
 1: 	lw ra, 0(sp)
