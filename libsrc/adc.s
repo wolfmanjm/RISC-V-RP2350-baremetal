@@ -154,15 +154,15 @@ adc_read:
 
 # 12-bit conversion, assume max value == ADC_VREF == 3.3 V
 # conversion_factor = 3.3f / (1 << 12);
-# raw adc in a0, return normalized in a0
+# raw adc in a0, return normalized in a1:a0 fixed point
 .globl adc_normalize
 adc_normalize:
 	addi sp, sp, -4
   	sw ra, 0(sp)
+	li a2, 0
 	mv a3, a0
 	li a0, 0x4CCCCCCC
 	li a1, 0x00000003 	# 3.3
-	li a2, 0
 	call fpmul 			# adcraw * 3.3
 	li a2, 0
 	li a3, 1<<12		# 4096.0

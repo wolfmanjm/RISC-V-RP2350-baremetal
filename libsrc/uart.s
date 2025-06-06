@@ -280,12 +280,20 @@ uart_print2hex:
 # print hex byte in a0
 .globl uart_print4hex
 uart_print4hex:
-	pushra
+	addi sp, sp, -12
+  	sw ra, 0(sp)
+  	sw a0, 4(sp)
+  	sw a1, 8(sp)
+
 	la a1, numstr
 	call hex4_2str
 	la a0, numstr
 	call uart_puts
-	popra
+
+ 	lw ra, 0(sp)
+  	lw a0, 4(sp)
+  	lw a1, 8(sp)
+  	addi sp, sp, 12
 	ret
 
 # print hex word in a0

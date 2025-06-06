@@ -19,11 +19,11 @@ main:
 	# call test_pwm
 	# call i2c_scan
 	# call test_imu
-	call test_fp
+	# call test_fp
 	# call test_read_fp
 	# call test_div64
 	# call test_neopixel
-	# call test_adc
+	call test_adc
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)
@@ -34,8 +34,9 @@ main:
 
 test_adc:
 	call uart_init
-	# uncomemnt for sub-test
+	# uncomment for sub-test
 	# j test_adc_as4
+	# j test_adc_temp
 
 	call adc_init
 	li a0, 26
@@ -43,10 +44,8 @@ test_adc:
 	li a0, 0
 	call adc_select_input
 1:	call adc_read
-	mv s1, a0
 	call uart_print4hex
 	call uart_printspc
-	mv a0, s1
 	call adc_normalize
 	call uart_printfp
 	call uart_printnl
@@ -60,7 +59,7 @@ test_adc_temp:
 	li a0, 4
 	call adc_select_input
 1:	call adc_read
-	call adc_normalize 	# adc
+	call adc_normalize 	# adc normalize to 0-3.3
 	# float tempC = 27.0f - (adc - 0.706f) / 0.001721000
 	li a2, 0xB4BC6A7E
 	li a3, 0x00000000 	# 0.706000000
