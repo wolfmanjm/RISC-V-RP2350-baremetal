@@ -100,6 +100,11 @@ Double word math:
 * dsub
 * dabs
 * dneg
+* mul_64_128u
+* mul_32_64
+* d_lshift
+* d_rshift
+
 
 *NOTE* most of these routines could be called from c as they conform to the
  ABI in most cases.
