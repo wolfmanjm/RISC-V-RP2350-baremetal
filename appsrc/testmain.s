@@ -19,7 +19,8 @@ main:
 	# call test_pwm
 	# call i2c_scan
 	# call test_imu
-	call test_fp
+	# call test_fp
+	call test_dword
 	# call test_read_fp
 	# call test_div64
 	# call test_neopixel
@@ -346,6 +347,36 @@ test_atan:
   	lw s1, 4(sp)
   	addi sp, sp, 8
 	ret
+
+test_dword:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+	call uart_init
+	# li a0, 0x00000000
+	# li a1, 0x00000004
+	# li a2, 0x80000000
+	# li a3, 0x00000000
+
+	# result should be FFFFFFFF_FFFFFFFE 00000000_00000001
+	li a0, 0xFFFFFFFF
+	li a1, 0xFFFFFFFF
+	li a2, 0xFFFFFFFF
+	li a3, 0xFFFFFFFF
+	call mul_64_128u
+	mv a4, a0
+	mv a5, a1
+	mv a0, a2
+	mv a1, a3
+	call uart_printfphex
+	call uart_printspc
+	mv a0, a4
+	mv a1, a5
+	call uart_printfphex
+	call uart_printnl
+ 	lw ra, 0(sp)
+  	addi sp, sp, 4
+  	ret
 
 test_read_fp:
 1:	call uart_getfp

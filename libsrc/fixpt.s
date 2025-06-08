@@ -77,7 +77,7 @@ fpmulu:
     # Result:
     # t0 = low 32 bits of result
     # t1 = mid 32 bits
-    # t6 = high 64-bit result upper half
+    # t6 = high 64-bit result lower half
 
     mv a0, t1
     mv a1, t6

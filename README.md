@@ -84,11 +84,13 @@ There is also a S31.32 fixed point library that handles:
 * fp_atan2
 * str2fp
 * uart_printfphex
+* fp2str
 * uart_printfp
+* uart_printfp1
 * uart_getfp
 
-plus uart print versions to print out fixed point numbers as decimal, and read
-in fixed point numbers.
+NOTE uart print versions to print out fixed point numbers as decimal, and read
+in fixed point numbers. Also convert a fixed point number to a string and print to 1DP.
 
 Double word math:
 
