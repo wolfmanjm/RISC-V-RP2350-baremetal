@@ -540,6 +540,8 @@ _sysinit:
 	call setup_ticks
 
 	call main
+	ebreak
+
 	wfi                 # Wait for interrupt (to save power)
 
 2:  j 2b

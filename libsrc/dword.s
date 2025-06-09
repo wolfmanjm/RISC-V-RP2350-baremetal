@@ -53,13 +53,7 @@ q_lshift1:
 	ret
 
 # 32-bit signed integer multiplication returning 64-bit product
-#   arguments:
-#       a0: x
-#       a1: y
-#   return:
-#       a0: x*y lower 32 bits
-#       a1: x*y upper 32 bits
-#
+# a0 * a1 result in a0:a1
 mul_32_64:
     mulh    t0, a1, a0
     mul     a0, a1, a0
