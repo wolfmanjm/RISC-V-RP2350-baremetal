@@ -14,21 +14,14 @@ main:
 	lw a3, 12(s1)
 	bnez a0, 2f
 	bnez a1, 2f
-	j 3f
+	j done
 
 2:
-	call mul_64_128u
+	# uncomment to test fpmul instead
+	# j test_fpmul
 
-	# mv a4, a0
-	# mv a5, a1
-	# mv a0, a2
-	# mv a1, a3
-	# call uart_printfphex
-	# call uart_printspc
-	# mv a0, a4
-	# mv a1, a5
-	# call uart_printfphex
-	# call uart_printnl
+	# test mul_64_128
+	call mul_64_128u
 
 	lw t0, 16(s1)
 	bne a0, t0, error
@@ -46,6 +39,26 @@ main:
 	addi s1, s1, 32
 	j 1b
 
+# tests fpmul instead
+test_fpmul:
+	call fpmulu
+
+	# for fpmul we just take the center 2 results (basically result >> 32)
+	lw t0, 20(s1)
+	bne a0, t0, error
+	lw t0, 24(s1)
+	bne a1, t0, error
+
+	call uart_printfphex
+	call uart_printspc
+	mv a0, s1
+	call uart_print8hex
+	call uart_printnl
+
+	addi s1, s1, 32
+	j 1b
+
+
 error:
 	la a0, errmsg
 	call uart_puts
@@ -54,7 +67,8 @@ error:
 	call uart_print8hex
 	call uart_printnl
 
-3:	lw ra, 0(sp)
+done:
+	lw ra, 0(sp)
 	lw s1, 4(sp)
  	addi sp, sp, 8
   	ret

@@ -53,38 +53,33 @@ fpmul:
     ret
 
 # unsigned fixed point multiply
+.globl fpmulu
 fpmulu:
 	addi sp, sp, -12
   	sw ra, 0(sp)
-  	sw s0, 4(sp)
-	sw s1, 8(sp)
+  	sw s2, 4(sp)
+	sw s3, 8(sp)
 
-    mul     t0, a0, a2        # t0 = A_lo * B_lo (low 32 bits)
-    mulhu   t1, a0, a2        # t1 = A_lo * B_lo (high 32 bits)
-    mul     t2, a1, a2        # t2 = A_hi * B_lo (low)
-    mul     t3, a0, a3        # t3 = A_lo * B_hi (low)
-    add     t4, t2, t3        # t4 = mid1 + mid2
-    sltu    t5, t4, t2        # t5 = carry from the addition
-    add     t1, t1, t4        # t1 = t1 + mid_sum_lo
-    add     t1, t1, t5        # t1 = add carry from mid_sum
-    mul     t6, a1, a3        # t6 = A_hi * B_hi
-    mulhu   s0, a1, a2        # s0 = upper 32 bits of A_hi * B_lo
-    mulhu   s1, a0, a3        # s1 = upper 32 bits of A_lo * B_hi
-    add     t6, t6, s0
-    add     t6, t6, s1
-    add     t6, t6, t5        # account for possible carry in mid_sum
-
-    # Result:
-    # t0 = low 32 bits of result
-    # t1 = mid 32 bits
-    # t6 = high 64-bit result lower half
-
-    mv a0, t1
-    mv a1, t6
+	mulhu t0, a0, a2	# carry to d2
+	mul t1, a1, a2
+	mulhu t2, a1, a2
+    add t1, t1, t0		# i1
+    sltu t0, t1, t0
+    add t2, t2, t0		# i2
+    mul t3, a3, a0
+    mulhu t4, a3, a0
+    add s2, t3, t1 		# d2  result s2
+    sltu t0, s2, t1
+    add t4, t4, t0
+    mul t5, a3, a1
+    add t5, t5, t4
+    add s3, t5, t2		# d3  result s3:s2
+    mv a0, s2
+    mv a1, s3
 
   	lw ra, 0(sp)
-  	lw s0, 4(sp)
- 	lw s1, 8(sp)
+  	lw s2, 4(sp)
+ 	lw s3, 8(sp)
   	addi sp, sp, 12
     ret
 

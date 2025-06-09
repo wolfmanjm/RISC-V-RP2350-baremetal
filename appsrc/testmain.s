@@ -19,8 +19,8 @@ main:
 	# call test_pwm
 	# call i2c_scan
 	# call test_imu
-	# call test_fp
-	call test_dword
+	call test_fp
+	# call test_dword
 	# call test_read_fp
 	# call test_div64
 	# call test_neopixel
