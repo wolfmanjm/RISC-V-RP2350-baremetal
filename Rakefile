@@ -59,17 +59,15 @@ file "#{PROG}.uf2" => "#{PROG}.elf" do |t|
   sh "#{PICOTOOL} uf2 convert #{t.source} #{t.name} --family rp2350-riscv"
 end
 
-task :mkbuilddir do
-	FileUtils.mkdir_p("build") unless Dir.exist?("build")
-end
+directory BUILD_DIR
 
 if FLASHBUILD
-  task :default => [:mkbuilddir, "#{PROG}.uf2"]
+  task :default => [BUILD_DIR, "#{PROG}.uf2"]
 else
-  task :default => [:mkbuilddir, "#{PROG}.elf"]
+  task :default => [BUILD_DIR, "#{PROG}.elf"]
 end
 
-task :mklib => [:clean, :mkbuilddir, "libhal.a"]
+task :mklib => [:clean, BUILD_DIR, "libhal.a"]
 
 task :clean do
 	FileUtils.rm_rf [BUILD_DIR, "#{PROG}.elf", "#{PROG}.lst", "libhal.a"]
