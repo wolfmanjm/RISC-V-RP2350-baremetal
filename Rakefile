@@ -31,9 +31,6 @@ else
 	LDFLAGS = '-g -m elf32lriscv -T linker-ram.ld'
 end
 
-mkdir_p(BUILD_DIR)
-directory BUILD_DIR
-
 # files that should go into the library
 LIBRARY_SRC = FileList["#{LIB_DIR}/*.s"]
 LIBRARY_OBJECTS = LIBRARY_SRC.ext('.o').pathmap("#{BUILD_DIR}/%f")
@@ -62,17 +59,20 @@ file "#{PROG}.uf2" => "#{PROG}.elf" do |t|
   sh "#{PICOTOOL} uf2 convert #{t.source} #{t.name} --family rp2350-riscv"
 end
 
-
-if FLASHBUILD
-  task :default => ["#{PROG}.uf2"]
-else
-  task :default => ["#{PROG}.elf"]
+task :mkbuilddir do
+	FileUtils.mkdir_p("build") unless Dir.exist?("build")
 end
 
-task :mklib => [:clean, "libhal.a"]
+if FLASHBUILD
+  task :default => [:mkbuilddir, "#{PROG}.uf2"]
+else
+  task :default => [:mkbuilddir, "#{PROG}.elf"]
+end
+
+task :mklib => [:clean, :mkbuilddir, "libhal.a"]
 
 task :clean do
-  rm_f ["build/*", "#{PROG}.elf", "#{PROG}.lst", "libhal.a"]
+	FileUtils.rm_rf [BUILD_DIR, "#{PROG}.elf", "#{PROG}.lst", "libhal.a"]
 end
 
 task :disasm do
