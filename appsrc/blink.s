@@ -1,21 +1,13 @@
 .section .text
 
-.macro pushra
-  	addi sp, sp, -4
-  	sw ra, 0(sp)
-.endm
-
-.macro popra
-  	lw ra, 0(sp)
-  	addi sp, sp, 4
-.endm
-
 .globl blink_init
 blink_init:
-	pushra
+ 	addi sp, sp, -4
+  	sw ra, 0(sp)
 	li a0, 25
 	call pin_output
-	popra
+  	lw ra, 0(sp)
+  	addi sp, sp, 4
 	ret
 
 .globl blink_test
@@ -33,15 +25,19 @@ blink_test:
 
 .globl blink_led
 blink_led:
-	pushra
+ 	addi sp, sp, -4
+  	sw ra, 0(sp)
 	beqz a0, led_off
 	li a0, 25
 	call pin_high
-	popra
+  	lw ra, 0(sp)
+  	addi sp, sp, 4
 	ret
 led_off:
-	pushra
+ 	addi sp, sp, -4
+  	sw ra, 0(sp)
 	li a0, 25
 	call pin_low
-	popra
+  	lw ra, 0(sp)
+  	addi sp, sp, 4
 	ret

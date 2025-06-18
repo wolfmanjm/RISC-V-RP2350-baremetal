@@ -9,7 +9,7 @@ main:
 	# call test_uart
 	# call blink_test
 	# call test_alarm
-	# call test_multi_core
+	call test_multi_core
 	# call test_gpio
 	# call test_gpio_irq
 	# call test_breakout
@@ -19,7 +19,7 @@ main:
 	# call test_pwm
 	# call i2c_scan
 	# call test_imu
-	call test_fp
+	# call test_fp
 	# call test_dword
 	# call test_read_fp
 	# call test_div64

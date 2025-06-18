@@ -32,8 +32,7 @@ else
 end
 
 mkdir_p(BUILD_DIR)
-
-# directory BUILD_DIR
+directory BUILD_DIR
 
 # files that should go into the library
 LIBRARY_SRC = FileList["#{LIB_DIR}/*.s"]
@@ -73,7 +72,7 @@ end
 task :mklib => [:clean, "libhal.a"]
 
 task :clean do
-  rm_rf ["build", "#{PROG}.elf", "#{PROG}.lst", "libhal.a"]
+  rm_f ["build/*", "#{PROG}.elf", "#{PROG}.lst", "libhal.a"]
 end
 
 task :disasm do

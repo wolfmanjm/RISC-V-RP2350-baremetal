@@ -52,7 +52,7 @@ fpmul:
   	addi sp, sp, 12
     ret
 
-# unsigned fixed point multiply
+# unsigned 64x64 bit multiply with 64bit result >> 32 the bits only needed for S31.32
 .globl fpmulu
 fpmulu:
 	addi sp, sp, -12
