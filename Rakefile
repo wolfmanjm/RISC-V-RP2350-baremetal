@@ -81,6 +81,11 @@ task :probe do
 	sh "xterm -geometry 140x62+1800+0 -e ./run-picoprobe &"
 end
 
+# connects to picoprobes UART
+task :terminal do
+	sh "konsole -e picocom --baud 115200 --echo --omap crlf --imap lfcrlf /dev/ttyACM0 &"
+end
+
 task :gdb do
 	sh "xterm -e ./run-picoprobe &"
 	sh "#{TOOLSDIR}/riscv32-corev-elf-gdb -x gdb.cfg #{PROG}.elf"

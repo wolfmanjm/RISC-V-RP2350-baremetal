@@ -5,11 +5,9 @@
 
 .globl main
 main:
-	# call toggle_pin
 	# call test_uart
-	# call blink_test
 	# call test_alarm
-	call test_multi_core
+	# call test_multi_core
 	# call test_gpio
 	# call test_gpio_irq
 	# call test_breakout
@@ -25,6 +23,7 @@ main:
 	# call test_div64
 	# call test_neopixel
 	# call test_adc
+	call test_flash
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)
@@ -1020,3 +1019,83 @@ test_uart:
 .section .data
 uart_msg: .asciz "Hello, RISC-V UART!\n"
 
+.section .text
+.equ PAGE, (1024*1024)
+test_flash:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+	call test_flash_erase
+	call test_flash_program
+  	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
+test_flash_erase:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+	li a0, PAGE		# page to erase
+	li a1, 4096		# one page
+	call flash_erase_range
+	# if a0 is zero we are ok
+	bnez a0, 3f
+
+	# now test it was erased
+	li t2, 0xFFFFFFFF
+	li t0, 0x10000000 + PAGE # page of flash to test
+	li t1, 4096
+	add t3, t0, t1
+1:	lw t1, 0(t0)
+	bne t1, t2, 2f
+	addi t0, t0, 4
+	bne t0, t3, 1b
+
+  	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
+test_flash_program:
+	addi sp, sp, -4
+  	sw ra, 0(sp)
+
+  	# fill with count
+  	la t0, data_buf
+  	li t1, 0
+  	li t2, 256
+1:	sb t1, 0(t0)
+	addi t0, t0, 1
+	addi t1, t1, 1
+	addi t2, t2, -1
+	bnez t2, 1b
+
+	li a0, PAGE		# page to write
+	la a1, data_buf
+	li a2, 256		# one sector
+	call flash_program_range
+	# if a0 is zero we are ok
+	bnez a0, 4f
+
+	# now test it was written
+	li t0, 0x10000000 + PAGE # page 2 of flash
+	li t1, 256
+	add t3, t0, t1
+	li t2, 0
+1:	lbu t1, 0(t0)
+	bne t1, t2, 5f
+	addi t2, t2, 1
+	addi t0, t0, 1
+	bne t0, t3, 1b
+
+  	lw ra, 0(sp)
+  	addi sp, sp, 4
+	ret
+
+
+# errors end up here
+2: 	j 2b
+3: 	j 3b
+4: 	j 4b
+5: 	j 5b
+
+.section .data
+data_buf: .dcb.b 256

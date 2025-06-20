@@ -40,6 +40,8 @@ Currently we have the following peripherals implemented...
 * ADC
 * rotary encoder
 * bitbanged neopixel
+* flash program and erase
+
 
 There tends to be tests for each library source, however for ease of testing and development the
 test you want to run is in testmain.s and you comment out the ones you do not want to run.
