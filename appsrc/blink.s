@@ -1,5 +1,9 @@
 .section .text
 
+.globl main
+main:
+	j blink_test
+
 .globl blink_init
 blink_init:
  	addi sp, sp, -4

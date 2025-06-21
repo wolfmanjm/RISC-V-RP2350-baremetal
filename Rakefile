@@ -13,15 +13,21 @@ else
 	PROG = ENV['target']
 end
 
+# change this to suit
+DEFAULTOOLSDIR = '/home/morris/Stuff/riscv/corev-openhw-gcc-ubuntu2204-20240530/bin'
+
 APP_SRC = 'appsrc'
 LIB_DIR = 'libsrc'
 BUILD_DIR = 'build'
-TOOLSDIR = '/home/morris/Stuff/riscv/corev-openhw-gcc-ubuntu2204-20240530/bin'
-ASSEMBLER = "#{TOOLSDIR}/riscv32-corev-elf-as"
-LINKER = "#{TOOLSDIR}/riscv32-corev-elf-ld"
-OBJDUMP = "#{TOOLSDIR}/riscv32-corev-elf-objdump"
+
+TOOLSDIR = ENV['RISCTOOLS'].nil? ? DEFAULTOOLSDIR :  ENV['RISCTOOLS']
+TOOLSBIN = "#{TOOLSDIR}/riscv32-corev-elf-"
+
+ASSEMBLER = "#{TOOLSBIN}as"
+LINKER = "#{TOOLSBIN}ld"
+OBJDUMP = "#{TOOLSBIN}objdump"
 ASFLAGS = '-g -march=rv32ima_zicsr_zifencei_zba_zbb_zbs_zbkb_zca_zcb_zcmp -mabi=ilp32'
-AR = "#{TOOLSDIR}/riscv32-corev-elf-ar"
+AR = "#{TOOLSBIN}ar"
 ARFLAGS = 'r'
 PICOTOOL = '/home/morris/Stuff/rpipico/picotool/bin/picotool/picotool'
 
@@ -88,7 +94,7 @@ end
 
 task :gdb do
 	sh "xterm -e ./run-picoprobe &"
-	sh "#{TOOLSDIR}/riscv32-corev-elf-gdb -x gdb.cfg #{PROG}.elf"
+	sh "#{TOOLSBIN}gdb -x gdb.cfg #{PROG}.elf"
 	sh "pkill openocd"
 end
 

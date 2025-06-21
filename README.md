@@ -4,7 +4,7 @@ the RP2350 (pico2 or other).
 This does not use any c code or the pico-sdk, although most of the registers
 accesses are gleaned from looking at how the pico-sdk accesses low level H/W.
 
-The library code is in the libsrc directory, althoug a couple of headers are
+The library code is in the libsrc directory, although a couple of headers are
 in the top level directory(the interrupt numbers and fonts).
 
 The appcode is in appsrc and you name the app you want to build on the
@@ -12,6 +12,8 @@ commandline eg `rake target=testmain` or `rake target=imu-angle`
 
 The build is done using Rake and by looking at the Rakefile you can see how to
 build the stuff, if Rake is not your thing.
+*NOTE* you will need to change DEFAULTTOOLSDIR in the Rakefile to point to where your
+ risc-v assembler and tools are or call `rake RISCTOOLS=/usr/bin ...`
 
 By default the code links into RAM for ease of development using the gdb load
 command, to link for FLASH use `rake flash=1` this will also create a .uf2
@@ -20,7 +22,8 @@ file for ease of flashing using drag and drop.
 
 I use the assembler in corev-openhw-gcc-ubuntu2204-20240530, but pretty much
 any recent risc-v assembler will work, presuming it supports the Hazard-3
-instruction set.
+instruction set. If you use a different assembler you may need to change
+TOOLSBIN in the Rakefile.
 
 src/startup.s does the initial setup and sets the clocks to run at 150mHz,
 then after the setup calls main in main.s. which currently calls the test
