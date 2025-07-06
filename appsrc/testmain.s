@@ -5,7 +5,7 @@
 
 .globl main
 main:
-	# call test_uart
+	call test_uart
 	# call test_alarm
 	# call test_multi_core
 	# call test_gpio
@@ -23,7 +23,7 @@ main:
 	# call test_div64
 	# call test_neopixel
 	# call test_adc
-	call test_flash
+	# call test_flash
 	ebreak
 
 2:	wfi                 # Wait for interrupt (to save power)
@@ -933,7 +933,8 @@ test_alarm:
 
 	# wait for alarm
 	la t0, alarm_flag
-1:	lw t1, 0(t0)
+1:	wfi
+	lw t1, 0(t0)
 	beqz t1, 1b
 
 	la t1, led_toggle

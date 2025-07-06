@@ -12,7 +12,7 @@ commandline eg `rake target=testmain` or `rake target=imu-angle`
 
 The build is done using Rake and by looking at the Rakefile you can see how to
 build the stuff, if Rake is not your thing.
-*NOTE* you will need to change DEFAULTTOOLSDIR in the Rakefile to point to where your
+*NOTE* you will need to change `DEFAULTTOOLSDIR` in the Rakefile to point to where your
  risc-v assembler and tools are or call `rake RISCTOOLS=/usr/bin ...`
 
 By default the code links into RAM for ease of development using the gdb load
@@ -23,7 +23,8 @@ file for ease of flashing using drag and drop.
 I use the assembler in corev-openhw-gcc-ubuntu2204-20240530, but pretty much
 any recent risc-v assembler will work, presuming it supports the Hazard-3
 instruction set. If you use a different assembler you may need to change
-TOOLSBIN in the Rakefile.
+`TOOLSBIN` in the Rakefile and maybe `ASFLAGS` if your assembler uses different
+flags.
 
 src/startup.s does the initial setup and sets the clocks to run at 150mHz,
 then after the setup calls main in main.s. which currently calls the test

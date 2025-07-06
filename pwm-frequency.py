@@ -25,7 +25,7 @@ def calculate_pwm_settings(target_freq, sys_clock=150_000_000, max_top=65535):
 
 # Example usage:
 if __name__ == "__main__":
-    target_freq = 4000  # 100 Hz
+    target_freq = 1000  # 100 Hz
     settings = calculate_pwm_settings(target_freq)
 
     if not settings:

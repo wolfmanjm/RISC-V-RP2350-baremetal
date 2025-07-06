@@ -400,6 +400,7 @@ gpio_enable_interrupt:
 	andi t1, t1, 0b0111		# gpio mod 8
 	slli t1, t1, 2 			# (gpio mod 8) * 4
 	sll t1, a2, t1 			# shift event into correct position
+							# TODO should clear event bits first
 	sw t1, 0(t2) 			# set event bits
 
 	li a0, 1
