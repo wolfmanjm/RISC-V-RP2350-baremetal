@@ -371,7 +371,7 @@ _sysinit:
 	sw t2, 0(t1)
 
 	li t1, XOSC_STARTUP   # Startup Delay (default = 50,000 cycles aprox.)
-	li t2, 0x0000011c
+	li t2, 0x0BD8
 	sw t2, 0(t1)
 
 	li t1, XOSC_CTRL | WRITE_SET   # Enable XOSC

@@ -5,7 +5,7 @@
 
 .globl main
 main:
-	call test_uart
+	# call test_uart
 	# call test_alarm
 	# call test_multi_core
 	# call test_gpio
@@ -13,7 +13,7 @@ main:
 	# call test_breakout
 	# call test_spi
 	# call test_rotary
-	# call test_tft
+	call test_tft
 	# call test_pwm
 	# call i2c_scan
 	# call test_imu
@@ -504,7 +504,7 @@ irq_count: .word 0
 test_tft:
 	call ili9341_init
 
-	j test_tft_char
+	# j test_tft_char
 
 1:	li a0, 0
 	call ili9341_clearscreen

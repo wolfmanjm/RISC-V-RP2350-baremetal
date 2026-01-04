@@ -166,6 +166,7 @@ spi1_set_format:
 
 # Hard coded to 4MHz
 # to change set the 2 and 19 below to whatever find-spi-baudrate.cpp spits out for the requested baudrate
+# eg 2 2 would be 40MHz
 spi1_set_baudrate:
 	pushra
 	li a0, 0
